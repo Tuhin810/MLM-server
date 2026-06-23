@@ -1,0 +1,236 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  USER
+  CUSTOMER
+  VENDOR
+  STATE_FRANCHISE
+  DISTRICT_FRANCHISE
+  TEHSIL_FRANCHISE
+  CITY_FRANCHISE
+  ADMIN
+}
+
+enum TransactionType {
+  CREDIT
+  DEBIT
+  COMMISSION
+  WITHDRAWAL
+  REFUND
+}
+
+enum IncomeType {
+  AUTO_POOL
+  REFERRAL
+  LEVEL
+}
+
+enum KycStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum CouponType {
+  PERCENTAGE
+  FIXED
+  COMBO
+  GIFT
+}
+
+enum WithdrawalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  SETTLED
+}
+
+model User {
+  id             String              @id @default(uuid())
+  name           String
+  mobile         String
+  email          String              @unique
+  password       String
+  referralCode   String              @unique
+  referredBy     String?
+  role           Role                @default(CUSTOMER)
+  status         String              @default("ACTIVE")
+  walletBalance  Float               @default(0)
+  pointBalance   Int                 @default(0)
+  kycStatus      KycStatus           @default(PENDING)
+  panCard        String?
+  aadhaarCard    String?
+  bankName       String?
+  accountNumber  String?
+  ifscCode       String?
+  holderName     String?
+  state          String?
+  district       String?
+  tehsil         String?
+  city           String?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  wallet         Wallet?
+  orders         Order[]
+  transactions   WalletTransaction[]
+  autoPoolMember AutoPoolMember?
+  incomeLogs     IncomeLog[]
+  addresses      Address[]
+  packages       UserPackage[]
+  withdrawals    Withdrawal[]
+}
+
+model Admin {
+  id        String   @id @default(uuid())
+  username  String   @unique
+  email     String   @unique
+  password  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Wallet {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  balance   Float    @default(0)
+  points    Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Product {
+  id          String               @id @default(uuid())
+  name        String
+  description String
+  image       String
+  price       Float
+  pointValue  Int
+  stock       Int
+  category    String               @default("General")
+  vendorId    String?
+  orders      Order[]
+  inventories FranchiseInventory[]
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+}
+
+model Order {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId   String
+  product     Product  @relation(fields: [productId], references: [id])
+  quantity    Int
+  totalAmount Float
+  createdAt   DateTime @default(now())
+}
+
+model WalletTransaction {
+  id          String          @id @default(uuid())
+  userId      String
+  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  amount      Float
+  type        TransactionType
+  description String
+  createdAt   DateTime        @default(now())
+}
+
+model AutoPoolMember {
+  id        String           @id @default(uuid())
+  userId    String           @unique
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parentId  String?
+  parent    AutoPoolMember?  @relation("AutoPoolHierarchy", fields: [parentId], references: [id])
+  children  AutoPoolMember[] @relation("AutoPoolHierarchy")
+  level     Int
+  position  Int
+  createdAt DateTime         @default(now())
+}
+
+model IncomeLog {
+  id         String     @id @default(uuid())
+  userId     String
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  amount     Float
+  level      Int
+  incomeType IncomeType @default(AUTO_POOL)
+  createdAt  DateTime   @default(now())
+}
+
+model Address {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  street    String
+  city      String
+  state     String
+  zipCode   String
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Package {
+  id          String        @id @default(uuid())
+  name        String
+  price       Float
+  pointValue  Int
+  benefits    String[]
+  status      String        @default("ACTIVE")
+  userPackages UserPackage[]
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+}
+
+model UserPackage {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  packageId String
+  package   Package  @relation(fields: [packageId], references: [id])
+  createdAt DateTime @default(now())
+}
+
+model Coupon {
+  id         String     @id @default(uuid())
+  code       String     @unique
+  type       CouponType
+  value      Float
+  expiryDate DateTime
+  status     String     @default("ACTIVE")
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+}
+
+model Withdrawal {
+  id          String           @id @default(uuid())
+  userId      String
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  amount      Float
+  bankDetails Json
+  status      WithdrawalStatus @default(PENDING)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+}
+
+model FranchiseInventory {
+  id          String   @id @default(uuid())
+  franchiseId String
+  productId   String
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  quantity    Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([franchiseId, productId])
+}

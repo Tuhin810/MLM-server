@@ -1,0 +1,21 @@
+import { Router } from "express";
+import { AdminController } from "../controllers/AdminController.js";
+import { authMiddleware, adminMiddleware } from "../middleware/authMiddleware.js";
+const router = Router();
+const adminController = new AdminController();
+// All routes here are admin protected
+router.get("/dashboard", authMiddleware, adminMiddleware, adminController.getDashboard);
+router.get("/users", authMiddleware, adminMiddleware, adminController.getUsers);
+router.get("/users/:userId/details", authMiddleware, adminMiddleware, adminController.getUserDetails);
+router.put("/users/:userId/status", authMiddleware, adminMiddleware, adminController.updateUserStatus);
+router.get("/income-logs", authMiddleware, adminMiddleware, adminController.getIncomeLogs);
+router.get("/transactions", authMiddleware, adminMiddleware, adminController.getTransactions);
+// Withdrawal management
+router.get("/withdrawals", authMiddleware, adminMiddleware, adminController.getWithdrawals);
+router.patch("/withdrawals/:id", authMiddleware, adminMiddleware, adminController.updateWithdrawal);
+// Package management
+router.get("/packages", authMiddleware, adminMiddleware, adminController.getPackages);
+router.post("/packages", authMiddleware, adminMiddleware, adminController.createPackage);
+router.put("/packages/:id", authMiddleware, adminMiddleware, adminController.updatePackage);
+router.delete("/packages/:id", authMiddleware, adminMiddleware, adminController.deletePackage);
+export default router;

@@ -1,0 +1,12 @@
+import { Router } from "express";
+import { WalletController } from "../controllers/WalletController.js";
+import { authMiddleware } from "../middleware/authMiddleware.js";
+const router = Router();
+const walletController = new WalletController();
+router.get("/", authMiddleware, walletController.getWallet);
+router.get("/transactions", authMiddleware, walletController.getTransactions);
+router.post("/deposit", authMiddleware, walletController.deposit);
+router.get("/income-logs", authMiddleware, walletController.getIncomeLogs);
+router.post("/withdraw", authMiddleware, walletController.requestWithdrawal);
+router.get("/withdrawals", authMiddleware, walletController.getWithdrawals);
+export default router;

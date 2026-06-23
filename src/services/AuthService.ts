@@ -1,0 +1,439 @@
+import bcrypt from "bcryptjs";
+import { UserRepository } from "../repositories/UserRepository.js";
+import { prisma } from "../config/db.js";
+import { generateToken } from "../utils/jwt.js";
+import { redisConnection } from "../config/queue.js";
+
+const userRepository = new UserRepository();
+
+export class AuthService {
+  async register(data: any) {
+    const { name, email, mobile, password, referredBy, otp } = data;
+
+    // 1. Verify OTP
+    const otpKey = `otp:register:${email}`;
+    const storedOtp = await redisConnection.get(otpKey);
+    if (!storedOtp || storedOtp !== otp) {
+      throw new Error("Invalid or expired OTP");
+    }
+
+    // 2. Clear OTP
+    await redisConnection.del(otpKey);
+
+    // 3. Check if user already exists
+    const existingUser = await userRepository.findByEmail(email);
+    if (existingUser) {
+      throw new Error("User with this email already exists");
+    }
+
+    // 4. Validate referral code if provided
+    let referrer: any = null;
+    if (referredBy) {
+      referrer = await userRepository.findByReferralCode(referredBy);
+      if (!referrer) {
+        throw new Error("Invalid referral code");
+      }
+    }
+
+    // 5. Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // 6. Generate unique referral code for the new user
+    let referralCode = "";
+    let isUnique = false;
+    while (!isUnique) {
+      const randomPart = Math.random().toString(36).substring(2, 8).toUpperCase();
+      const prefix = name.substring(0, 3).replace(/[^a-zA-Z]/g, "").toUpperCase() || "MLM";
+      referralCode = `${prefix}${randomPart}`;
+      const check = await userRepository.findByReferralCode(referralCode);
+      if (!check) isUnique = true;
+    }
+
+    // 7. Create user and their wallet inside a transaction
+    const user = await prisma.$transaction(async (tx) => {
+      const newUser = await tx.user.create({
+        data: {
+          name,
+          email,
+          mobile,
+          password: hashedPassword,
+          referralCode,
+          referredBy: referrer ? referredBy : null,
+          status: "ACTIVE",
+          walletBalance: 0,
+          pointBalance: 0,
+        },
+      });
+
+      await tx.wallet.create({
+        data: {
+          userId: newUser.id,
+          balance: 0,
+          points: 0,
+        },
+      });
+
+      return newUser;
+    });
+
+    const token = generateToken({ id: user.id, role: "USER" });
+
+    return {
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        mobile: user.mobile,
+        referralCode: user.referralCode,
+        referredBy: user.referredBy,
+        walletBalance: user.walletBalance,
+        pointBalance: user.pointBalance,
+        role: user.role,
+      },
+      token,
+    };
+  }
+
+  async login(data: any) {
+    const { email, password } = data;
+
+    // 1. Check Admin login
+    const admin = await prisma.admin.findUnique({ where: { email } });
+    if (admin) {
+      const isMatch = await bcrypt.compare(password, admin.password);
+      if (!isMatch) {
+        throw new Error("Invalid credentials");
+      }
+
+      const token = generateToken({ id: admin.id, role: "ADMIN" });
+
+      return {
+        user: {
+          id: admin.id,
+          name: admin.username,
+          email: admin.email,
+          mobile: "N/A",
+          referralCode: "ADMIN",
+          referredBy: null,
+          walletBalance: 0,
+          pointBalance: 0,
+          role: "ADMIN",
+        },
+        token,
+      };
+    }
+
+    // 2. Standard User login
+    const user = await userRepository.findByEmail(email);
+    if (!user) {
+      throw new Error("Invalid credentials");
+    }
+
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      throw new Error("Invalid credentials");
+    }
+
+    if (user.status !== "ACTIVE") {
+      throw new Error("Your account has been deactivated");
+    }
+
+    const token = generateToken({ id: user.id, role: "USER" });
+
+    return {
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        mobile: user.mobile,
+        referralCode: user.referralCode,
+        referredBy: user.referredBy,
+        walletBalance: user.walletBalance,
+        pointBalance: user.pointBalance,
+        role: user.role,
+      },
+      token,
+    };
+  }
+
+  async getProfile(userId: string) {
+    const user = await userRepository.findById(userId);
+    if (!user) {
+      // Check if this is an Admin
+      const admin = await prisma.admin.findUnique({ where: { id: userId } });
+      if (admin) {
+        return {
+          id: admin.id,
+          name: admin.username,
+          email: admin.email,
+          mobile: "N/A",
+          referralCode: "ADMIN",
+          referredBy: null,
+          role: "ADMIN" as const,
+          status: "ACTIVE",
+          walletBalance: 0,
+          pointBalance: 0,
+          kycStatus: "APPROVED" as const,
+          panCard: null,
+          aadhaarCard: null,
+          holderName: null,
+          bankName: null,
+          accountNumber: null,
+          ifscCode: null,
+          addresses: [],
+          createdAt: admin.createdAt,
+        };
+      }
+      throw new Error("User not found");
+    }
+    return {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      mobile: user.mobile,
+      referralCode: user.referralCode,
+      referredBy: user.referredBy,
+      role: user.role,
+      status: user.status,
+      walletBalance: user.walletBalance,
+      pointBalance: user.pointBalance,
+      kycStatus: user.kycStatus,
+      panCard: user.panCard,
+      aadhaarCard: user.aadhaarCard,
+      holderName: user.holderName,
+      bankName: user.bankName,
+      accountNumber: user.accountNumber,
+      ifscCode: user.ifscCode,
+      addresses: (user as any).addresses || [],
+      createdAt: user.createdAt,
+    };
+  }
+
+  async updateProfile(userId: string, data: any) {
+    const { name, mobile } = data;
+    await prisma.user.update({
+      where: { id: userId },
+      data: { name, mobile },
+    });
+    return this.getProfile(userId);
+  }
+
+  async updateKyc(userId: string, data: any) {
+    const { panCard, aadhaarCard } = data;
+    await prisma.user.update({
+      where: { id: userId },
+      data: {
+        panCard,
+        aadhaarCard,
+        kycStatus: "PENDING",
+      },
+    });
+    return this.getProfile(userId);
+  }
+
+  async updateBankDetails(userId: string, data: any) {
+    const { holderName, bankName, accountNumber, ifscCode } = data;
+    await prisma.user.update({
+      where: { id: userId },
+      data: {
+        holderName,
+        bankName,
+        accountNumber,
+        ifscCode,
+      },
+    });
+    return this.getProfile(userId);
+  }
+
+  async addAddress(userId: string, data: any) {
+    const { street, city, state, zipCode } = data;
+    
+    const existingCount = await prisma.address.count({ where: { userId } });
+    const isDefault = existingCount === 0;
+
+    await prisma.address.create({
+      data: {
+        userId,
+        street,
+        city,
+        state,
+        zipCode,
+        isDefault,
+      },
+    });
+    return this.getProfile(userId);
+  }
+
+  async deleteAddress(userId: string, addressId: string) {
+    const address = await prisma.address.findFirst({
+      where: { id: addressId, userId },
+    });
+    if (!address) {
+      throw new Error("Address not found or unauthorized");
+    }
+
+    await prisma.address.delete({
+      where: { id: addressId },
+    });
+
+    if (address.isDefault) {
+      const nextAddress = await prisma.address.findFirst({
+        where: { userId },
+        orderBy: { createdAt: "asc" },
+      });
+      if (nextAddress) {
+        await prisma.address.update({
+          where: { id: nextAddress.id },
+          data: { isDefault: true },
+        });
+      }
+    }
+
+    return this.getProfile(userId);
+  }
+
+  async setDefaultAddress(userId: string, addressId: string) {
+    const address = await prisma.address.findFirst({
+      where: { id: addressId, userId },
+    });
+    if (!address) {
+      throw new Error("Address not found or unauthorized");
+    }
+
+    await prisma.$transaction([
+      prisma.address.updateMany({
+        where: { userId },
+        data: { isDefault: false },
+      }),
+      prisma.address.update({
+        where: { id: addressId },
+        data: { isDefault: true },
+      }),
+    ]);
+
+    return this.getProfile(userId);
+  }
+
+  async sendOtp(email: string, purpose: "register" | "forgot_password") {
+    // 1. Verify existence checks based on purpose
+    const existingUser = await userRepository.findByEmail(email);
+    if (purpose === "register" && existingUser) {
+      throw new Error("User with this email already exists");
+    }
+    if (purpose === "forgot_password" && !existingUser) {
+      throw new Error("No user found with this email");
+    }
+
+    // 2. Generate a 6-digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+    // 3. Store OTP in Redis with 5 minutes (300 seconds) expiration
+    const key = `otp:${purpose}:${email}`;
+    await redisConnection.setex(key, 300, otp);
+
+    // 4. Log OTP to console for development / simulator mode
+    console.log(`\n==========================================`);
+    console.log(`[OTP SERVICE] OTP for ${email} (${purpose}): ${otp}`);
+    console.log(`==========================================\n`);
+
+    return {
+      message: `OTP sent successfully to ${email} (Simulated).`,
+    };
+  }
+
+  async forgotPasswordReset(email: string, otp: string, newPassword: string) {
+    // 1. Verify OTP from Redis
+    const key = `otp:forgot_password:${email}`;
+    const storedOtp = await redisConnection.get(key);
+    if (!storedOtp || storedOtp !== otp) {
+      throw new Error("Invalid or expired OTP");
+    }
+
+    // 2. Clear the OTP
+    await redisConnection.del(key);
+
+    // 3. Hash the new password
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    // 4. Update the user password in DB
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    await prisma.user.update({
+      where: { email },
+      data: { password: hashedPassword },
+    });
+
+    return { message: "Password reset successful" };
+  }
+
+  async getReferralTree(userId: string) {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        mobile: true,
+        referralCode: true,
+        referredBy: true,
+        role: true,
+        createdAt: true,
+      },
+    });
+
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    const fetchReferralsRecursive = async (
+      referralCode: string,
+      depth: number = 1,
+      maxDepth: number = 4
+    ): Promise<any[]> => {
+      if (depth > maxDepth) return [];
+
+      const downlines = await prisma.user.findMany({
+        where: { referredBy: referralCode },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          mobile: true,
+          referralCode: true,
+          referredBy: true,
+          role: true,
+          createdAt: true,
+        },
+      });
+
+      const result: any[] = [];
+      for (const downline of downlines) {
+        const children = await fetchReferralsRecursive(downline.referralCode, depth + 1, maxDepth);
+        result.push({
+          id: downline.id,
+          name: downline.name,
+          email: downline.email,
+          mobile: downline.mobile,
+          referralCode: downline.referralCode,
+          referredBy: downline.referredBy,
+          role: downline.role,
+          createdAt: downline.createdAt,
+          level: depth,
+          children,
+        });
+      }
+      return result;
+    };
+
+    const tree = await fetchReferralsRecursive(user.referralCode, 1, 4);
+
+    return {
+      user,
+      tree,
+    };
+  }
+}
+
