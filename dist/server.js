@@ -1,14 +1,14 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
-import authRoutes from "./routes/authRoutes.js";
-import productRoutes from "./routes/productRoutes.js";
-import orderRoutes from "./routes/orderRoutes.js";
-import walletRoutes from "./routes/walletRoutes.js";
-import autoPoolRoutes from "./routes/autoPoolRoutes.js";
-import adminRoutes from "./routes/adminRoutes.js";
-import packageRoutes from "./routes/packageRoutes.js";
-import paymentRoutes from "./routes/paymentRoutes.js";
+import authRoutes from "./modules/auth/authRoutes.js";
+import productRoutes from "./modules/product/productRoutes.js";
+import orderRoutes from "./modules/order/orderRoutes.js";
+import walletRoutes from "./modules/wallet/walletRoutes.js";
+import autoPoolRoutes from "./modules/autopool/autoPoolRoutes.js";
+import adminRoutes from "./modules/admin/adminRoutes.js";
+import packageRoutes from "./modules/package/packageRoutes.js";
+import paymentRoutes from "./modules/payment/paymentRoutes.js";
 import { errorMiddleware } from "./middleware/errorMiddleware.js";
 import { prisma } from "./config/db.js";
 import "./config/workers.js"; // Initialize BullMQ background workers

@@ -1,5 +1,5 @@
 import { prisma } from "./config/db.js";
-import { AutoPoolService } from "./services/AutoPoolService.js";
+import { AutoPoolService } from "./modules/autopool/AutoPoolService.js";
 
 const autoPoolService = new AutoPoolService();
 
