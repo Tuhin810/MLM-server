@@ -159,4 +159,32 @@ export class AdminController {
       next(error);
     }
   }
+
+  async getReferralStats(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const stats = await adminService.getReferralStats();
+      res.status(200).json(stats);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async getReferralUsers(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const users = await adminService.getReferralUsers();
+      res.status(200).json(users);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async getReferralTree(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { userId } = req.params;
+      const tree = await adminService.getReferralTree(userId as string);
+      res.status(200).json(tree);
+    } catch (error) {
+      next(error);
+    }
+  }
 }

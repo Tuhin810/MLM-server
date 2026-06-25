@@ -18,4 +18,8 @@ router.get("/packages", authMiddleware, adminMiddleware, adminController.getPack
 router.post("/packages", authMiddleware, adminMiddleware, adminController.createPackage);
 router.put("/packages/:id", authMiddleware, adminMiddleware, adminController.updatePackage);
 router.delete("/packages/:id", authMiddleware, adminMiddleware, adminController.deletePackage);
+// Referral system management
+router.get("/referrals/stats", authMiddleware, adminMiddleware, adminController.getReferralStats);
+router.get("/referrals/users", authMiddleware, adminMiddleware, adminController.getReferralUsers);
+router.get("/referrals/tree/:userId", authMiddleware, adminMiddleware, adminController.getReferralTree);
 export default router;

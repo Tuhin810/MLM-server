@@ -3,6 +3,7 @@ import { UserRepository } from "./UserRepository.js";
 import { prisma } from "../../config/db.js";
 import { generateAccessToken, generateRefreshToken, verifyRefreshToken } from "./jwt.js";
 import { redisConnection } from "../../config/queue.js";
+import { TransactionType } from "@prisma/client";
 
 const userRepository = new UserRepository();
 
@@ -72,6 +73,30 @@ export class AuthService {
           points: 0,
         },
       });
+
+      if (referrer) {
+        // Increment the sponsor's Wallet.points by 10
+        await tx.wallet.update({
+          where: { userId: referrer.id },
+          data: { points: { increment: 10 } },
+        });
+
+        // Increment the sponsor's User.pointBalance by 10
+        await tx.user.update({
+          where: { id: referrer.id },
+          data: { pointBalance: { increment: 10 } },
+        });
+
+        // Log a WalletTransaction of type COMMISSION for the sponsor
+        await tx.walletTransaction.create({
+          data: {
+            userId: referrer.id,
+            amount: 0,
+            type: TransactionType.COMMISSION,
+            description: `Referral PV points bonus (10 PV) for sponsoring ${name}`,
+          },
+        });
+      }
 
       return newUser;
     });

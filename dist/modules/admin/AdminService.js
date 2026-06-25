@@ -138,4 +138,100 @@ export class AdminService {
     async getAllTransactions() {
         return walletRepository.findAllTransactions();
     }
+    async getReferralStats() {
+        const totalUsers = await prisma.user.count();
+        const pointsSum = await prisma.wallet.aggregate({
+            _sum: { points: true }
+        });
+        const totalReferrals = await prisma.user.count({
+            where: { referredBy: { not: null } }
+        });
+        const topReferrers = await prisma.user.findMany({
+            orderBy: { pointBalance: "desc" },
+            take: 5,
+            select: {
+                id: true,
+                name: true,
+                email: true,
+                pointBalance: true,
+            }
+        });
+        return {
+            totalUsers,
+            totalActivePoints: pointsSum._sum.points || 0,
+            totalReferrals,
+            topReferrers,
+        };
+    }
+    async getReferralUsers() {
+        const users = await prisma.user.findMany({
+            select: {
+                id: true,
+                name: true,
+                email: true,
+                referralCode: true,
+                referredBy: true,
+                pointBalance: true,
+                status: true,
+                createdAt: true,
+            },
+            orderBy: { createdAt: "desc" },
+        });
+        const usersWithDirectReferralsCount = await Promise.all(users.map(async (user) => {
+            const directReferralsCount = await prisma.user.count({
+                where: { referredBy: user.referralCode },
+            });
+            return {
+                ...user,
+                directReferralsCount,
+            };
+        }));
+        return usersWithDirectReferralsCount;
+    }
+    async getReferralTree(userId) {
+        const getTree = async (uId, currentLevel = 0, maxLevel = 4) => {
+            const user = await prisma.user.findUnique({
+                where: { id: uId },
+                select: {
+                    id: true,
+                    name: true,
+                    email: true,
+                    referralCode: true,
+                    referredBy: true,
+                    pointBalance: true,
+                },
+            });
+            if (!user)
+                return null;
+            const node = {
+                id: user.id,
+                name: user.name,
+                email: user.email,
+                referralCode: user.referralCode,
+                referredBy: user.referredBy,
+                points: user.pointBalance,
+                level: currentLevel,
+                children: [],
+            };
+            if (currentLevel < maxLevel && user.referralCode) {
+                const children = await prisma.user.findMany({
+                    where: { referredBy: user.referralCode },
+                    select: { id: true },
+                });
+                for (const child of children) {
+                    const childNode = await getTree(child.id, currentLevel + 1, maxLevel);
+                    if (childNode) {
+                        node.children.push(childNode);
+                    }
+                }
+            }
+            return node;
+        };
+        const tree = await getTree(userId);
+        return {
+            userId,
+            inTree: !!tree,
+            tree,
+        };
+    }
 }

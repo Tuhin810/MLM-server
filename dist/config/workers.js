@@ -77,14 +77,23 @@ export const commissionWorker = new Worker("commission-queue", async (job) => {
                 const reward = commissions[up.level - 1];
                 if (!reward)
                     continue;
+                // Reward direct sponsor (L1) with 20 PV points
+                const isL1 = up.level === 1;
+                const pointsReward = isL1 ? 20 : 0;
                 // Credit Sponsor's Wallet & User Model
                 await tx.wallet.update({
                     where: { userId: up.user.id },
-                    data: { balance: { increment: reward } },
+                    data: {
+                        balance: { increment: reward },
+                        ...(pointsReward > 0 ? { points: { increment: pointsReward } } : {})
+                    },
                 });
                 await tx.user.update({
                     where: { id: up.user.id },
-                    data: { walletBalance: { increment: reward } },
+                    data: {
+                        walletBalance: { increment: reward },
+                        ...(pointsReward > 0 ? { pointBalance: { increment: pointsReward } } : {})
+                    },
                 });
                 // Log Ledger entry
                 await tx.walletTransaction.create({
@@ -92,7 +101,9 @@ export const commissionWorker = new Worker("commission-queue", async (job) => {
                         userId: up.user.id,
                         amount: reward,
                         type: TransactionType.COMMISSION,
-                        description: `MLM Package Level ${up.level} Payout from Subscriber Package Purchase`,
+                        description: isL1
+                            ? `MLM Package Level 1 Payout & +20 PV Points from Subscriber Package Purchase`
+                            : `MLM Package Level ${up.level} Payout from Subscriber Package Purchase`,
                     },
                 });
                 // Log Income

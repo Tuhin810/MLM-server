@@ -154,4 +154,32 @@ export class AdminController {
             next(error);
         }
     }
+    async getReferralStats(req, res, next) {
+        try {
+            const stats = await adminService.getReferralStats();
+            res.status(200).json(stats);
+        }
+        catch (error) {
+            next(error);
+        }
+    }
+    async getReferralUsers(req, res, next) {
+        try {
+            const users = await adminService.getReferralUsers();
+            res.status(200).json(users);
+        }
+        catch (error) {
+            next(error);
+        }
+    }
+    async getReferralTree(req, res, next) {
+        try {
+            const { userId } = req.params;
+            const tree = await adminService.getReferralTree(userId);
+            res.status(200).json(tree);
+        }
+        catch (error) {
+            next(error);
+        }
+    }
 }
