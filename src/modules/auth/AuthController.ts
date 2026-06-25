@@ -9,7 +9,9 @@ export class AuthController {
   async register(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const parsedData = registerSchema.parse(req.body);
-      const result = await authService.register(parsedData);
+      const deviceInfo = req.headers["user-agent"] || "Unknown Device";
+      const ipAddress = req.ip || req.socket.remoteAddress || "Unknown IP";
+      const result = await authService.register(parsedData, deviceInfo, ipAddress);
       res.status(201).json(result);
     } catch (error) {
       next(error);
@@ -19,7 +21,24 @@ export class AuthController {
   async login(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const parsedData = loginSchema.parse(req.body);
-      const result = await authService.login(parsedData);
+      const deviceInfo = req.headers["user-agent"] || "Unknown Device";
+      const ipAddress = req.ip || req.socket.remoteAddress || "Unknown IP";
+      const result = await authService.login(parsedData, deviceInfo, ipAddress);
+      res.status(200).json(result);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async logout(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const authHeader = req.headers.authorization;
+      const token = authHeader?.split(" ")[1];
+      if (!token) {
+        res.status(400).json({ error: "No token provided" });
+        return;
+      }
+      const result = await authService.logout(token);
       res.status(200).json(result);
     } catch (error) {
       next(error);

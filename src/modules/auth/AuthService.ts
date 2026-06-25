@@ -7,7 +7,7 @@ import { redisConnection } from "../../config/queue.js";
 const userRepository = new UserRepository();
 
 export class AuthService {
-  async register(data: any) {
+  async register(data: any, deviceInfo?: string, ipAddress?: string) {
     const { name, email, mobile, password, referredBy, otp } = data;
 
     // 1. Verify OTP
@@ -78,6 +78,15 @@ export class AuthService {
 
     const token = generateToken({ id: user.id, role: "USER" });
 
+    await prisma.session.create({
+      data: {
+        userId: user.id,
+        token,
+        deviceInfo: deviceInfo || null,
+        ipAddress: ipAddress || null,
+      },
+    });
+
     return {
       user: {
         id: user.id,
@@ -94,7 +103,7 @@ export class AuthService {
     };
   }
 
-  async login(data: any) {
+  async login(data: any, deviceInfo?: string, ipAddress?: string) {
     const { email, password } = data;
 
     // 1. Check Admin login
@@ -106,6 +115,15 @@ export class AuthService {
       }
 
       const token = generateToken({ id: admin.id, role: "ADMIN" });
+
+      await prisma.session.create({
+        data: {
+          adminId: admin.id,
+          token,
+          deviceInfo: deviceInfo || null,
+          ipAddress: ipAddress || null,
+        },
+      });
 
       return {
         user: {
@@ -139,6 +157,15 @@ export class AuthService {
     }
 
     const token = generateToken({ id: user.id, role: "USER" });
+
+    await prisma.session.create({
+      data: {
+        userId: user.id,
+        token,
+        deviceInfo: deviceInfo || null,
+        ipAddress: ipAddress || null,
+      },
+    });
 
     return {
       user: {
@@ -434,5 +461,13 @@ export class AuthService {
       user,
       tree,
     };
+  }
+
+  async logout(token: string) {
+    await prisma.session.updateMany({
+      where: { token },
+      data: { isActive: false },
+    });
+    return { message: "Logged out successfully" };
   }
 }

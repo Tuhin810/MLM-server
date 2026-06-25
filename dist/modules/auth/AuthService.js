@@ -5,7 +5,7 @@ import { generateToken } from "./jwt.js";
 import { redisConnection } from "../../config/queue.js";
 const userRepository = new UserRepository();
 export class AuthService {
-    async register(data) {
+    async register(data, deviceInfo, ipAddress) {
         const { name, email, mobile, password, referredBy, otp } = data;
         // 1. Verify OTP
         const otpKey = `otp:register:${email}`;
@@ -66,6 +66,14 @@ export class AuthService {
             return newUser;
         });
         const token = generateToken({ id: user.id, role: "USER" });
+        await prisma.session.create({
+            data: {
+                userId: user.id,
+                token,
+                deviceInfo: deviceInfo || null,
+                ipAddress: ipAddress || null,
+            },
+        });
         return {
             user: {
                 id: user.id,
@@ -81,7 +89,7 @@ export class AuthService {
             token,
         };
     }
-    async login(data) {
+    async login(data, deviceInfo, ipAddress) {
         const { email, password } = data;
         // 1. Check Admin login
         const admin = await prisma.admin.findUnique({ where: { email } });
@@ -91,6 +99,14 @@ export class AuthService {
                 throw new Error("Invalid credentials");
             }
             const token = generateToken({ id: admin.id, role: "ADMIN" });
+            await prisma.session.create({
+                data: {
+                    adminId: admin.id,
+                    token,
+                    deviceInfo: deviceInfo || null,
+                    ipAddress: ipAddress || null,
+                },
+            });
             return {
                 user: {
                     id: admin.id,
@@ -119,6 +135,14 @@ export class AuthService {
             throw new Error("Your account has been deactivated");
         }
         const token = generateToken({ id: user.id, role: "USER" });
+        await prisma.session.create({
+            data: {
+                userId: user.id,
+                token,
+                deviceInfo: deviceInfo || null,
+                ipAddress: ipAddress || null,
+            },
+        });
         return {
             user: {
                 id: user.id,
@@ -378,5 +402,12 @@ export class AuthService {
             user,
             tree,
         };
+    }
+    async logout(token) {
+        await prisma.session.updateMany({
+            where: { token },
+            data: { isActive: false },
+        });
+        return { message: "Logged out successfully" };
     }
 }

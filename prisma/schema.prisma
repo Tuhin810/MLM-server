@@ -87,6 +87,7 @@ model User {
   addresses      Address[]
   packages       UserPackage[]
   withdrawals    Withdrawal[]
+  sessions       Session[]
 }
 
 model Admin {
@@ -96,6 +97,7 @@ model Admin {
   password  String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  sessions  Session[]
 }
 
 model Wallet {
@@ -233,4 +235,18 @@ model FranchiseInventory {
   updatedAt   DateTime @updatedAt
 
   @@unique([franchiseId, productId])
+}
+
+model Session {
+  id         String   @id @default(uuid())
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  adminId    String?
+  admin      Admin?   @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  token      String   @unique
+  deviceInfo String?
+  ipAddress  String?
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 }

@@ -9,6 +9,7 @@ router.post("/register", authController.register);
 router.post("/login", authController.login);
 router.post("/send-otp", authController.sendOtp);
 router.post("/forgot-password/reset", authController.forgotPasswordReset);
+router.post("/logout", authMiddleware as any, authController.logout);
 router.get("/profile", authMiddleware as any, authController.getProfile);
 router.put("/profile", authMiddleware as any, authController.updateProfile);
 router.post("/profile/kyc", authMiddleware as any, authController.updateKyc);

@@ -24,6 +24,16 @@ export const authMiddleware = async (
     }
 
     const token = authHeader.split(" ")[1];
+
+    // Check if session exists and is active
+    const session = await prisma.session.findFirst({
+      where: { token, isActive: true },
+    });
+    if (!session) {
+      res.status(401).json({ error: "Session expired or logged out." });
+      return;
+    }
+
     const decoded = verifyToken(token);
 
     if (decoded.role === "ADMIN") {
