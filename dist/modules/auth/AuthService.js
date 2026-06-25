@@ -1,7 +1,7 @@
 import bcrypt from "bcryptjs";
 import { UserRepository } from "./UserRepository.js";
 import { prisma } from "../../config/db.js";
-import { generateToken } from "./jwt.js";
+import { generateAccessToken, generateRefreshToken, verifyRefreshToken } from "./jwt.js";
 import { redisConnection } from "../../config/queue.js";
 const userRepository = new UserRepository();
 export class AuthService {
@@ -65,14 +65,20 @@ export class AuthService {
             });
             return newUser;
         });
-        const token = generateToken({ id: user.id, role: "USER" });
-        await prisma.session.create({
+        const session = await prisma.session.create({
             data: {
                 userId: user.id,
-                token,
+                token: "", // Will store refresh token
                 deviceInfo: deviceInfo || null,
                 ipAddress: ipAddress || null,
             },
+        });
+        const accessToken = generateAccessToken({ id: user.id, role: "USER", sessionId: session.id });
+        const refreshToken = generateRefreshToken({ id: user.id, role: "USER", sessionId: session.id });
+        // Store refresh token in session
+        await prisma.session.update({
+            where: { id: session.id },
+            data: { token: refreshToken },
         });
         return {
             user: {
@@ -86,7 +92,8 @@ export class AuthService {
                 pointBalance: user.pointBalance,
                 role: user.role,
             },
-            token,
+            accessToken,
+            refreshToken,
         };
     }
     async login(data, deviceInfo, ipAddress) {
@@ -98,14 +105,19 @@ export class AuthService {
             if (!isMatch) {
                 throw new Error("Invalid credentials");
             }
-            const token = generateToken({ id: admin.id, role: "ADMIN" });
-            await prisma.session.create({
+            const session = await prisma.session.create({
                 data: {
                     adminId: admin.id,
-                    token,
+                    token: "", // Will store refresh token
                     deviceInfo: deviceInfo || null,
                     ipAddress: ipAddress || null,
                 },
+            });
+            const accessToken = generateAccessToken({ id: admin.id, role: "ADMIN", sessionId: session.id });
+            const refreshToken = generateRefreshToken({ id: admin.id, role: "ADMIN", sessionId: session.id });
+            await prisma.session.update({
+                where: { id: session.id },
+                data: { token: refreshToken },
             });
             return {
                 user: {
@@ -119,7 +131,8 @@ export class AuthService {
                     pointBalance: 0,
                     role: "ADMIN",
                 },
-                token,
+                accessToken,
+                refreshToken,
             };
         }
         // 2. Standard User login
@@ -134,14 +147,19 @@ export class AuthService {
         if (user.status !== "ACTIVE") {
             throw new Error("Your account has been deactivated");
         }
-        const token = generateToken({ id: user.id, role: "USER" });
-        await prisma.session.create({
+        const session = await prisma.session.create({
             data: {
                 userId: user.id,
-                token,
+                token: "", // Will store refresh token
                 deviceInfo: deviceInfo || null,
                 ipAddress: ipAddress || null,
             },
+        });
+        const accessToken = generateAccessToken({ id: user.id, role: "USER", sessionId: session.id });
+        const refreshToken = generateRefreshToken({ id: user.id, role: "USER", sessionId: session.id });
+        await prisma.session.update({
+            where: { id: session.id },
+            data: { token: refreshToken },
         });
         return {
             user: {
@@ -155,7 +173,8 @@ export class AuthService {
                 pointBalance: user.pointBalance,
                 role: user.role,
             },
-            token,
+            accessToken,
+            refreshToken,
         };
     }
     async getProfile(userId) {
@@ -409,5 +428,32 @@ export class AuthService {
             data: { isActive: false },
         });
         return { message: "Logged out successfully" };
+    }
+    async refresh(refreshToken) {
+        if (!refreshToken) {
+            throw new Error("Refresh token is required");
+        }
+        // 1. Verify Refresh Token JWT signature
+        let decoded;
+        try {
+            decoded = verifyRefreshToken(refreshToken);
+        }
+        catch (err) {
+            throw new Error("Invalid or expired refresh token");
+        }
+        // 2. Look up the active session in the database
+        const session = await prisma.session.findFirst({
+            where: { token: refreshToken, isActive: true },
+        });
+        if (!session) {
+            throw new Error("Session expired or logged out");
+        }
+        // 3. Generate a new access token
+        const accessToken = generateAccessToken({
+            id: decoded.id,
+            role: decoded.role,
+            sessionId: session.id,
+        });
+        return { accessToken };
     }
 }

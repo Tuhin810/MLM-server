@@ -20,9 +20,10 @@ const PORT = process.env.PORT || 5000;
 
 // Enable CORS for frontend development server
 app.use(cors({
-  origin: "*",
+  origin: true,
+  credentials: true,
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"]
+  allowedHeaders: ["Content-Type", "Authorization", "Cookie"]
 }));
 
 app.use(express.json());

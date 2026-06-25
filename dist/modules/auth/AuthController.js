@@ -1,5 +1,20 @@
 import { AuthService } from "./AuthService.js";
 import { registerSchema, loginSchema } from "./authValidation.js";
+import { verifyToken } from "./jwt.js";
+import { prisma } from "../../config/db.js";
+function parseCookies(cookieHeader) {
+    const list = {};
+    if (!cookieHeader)
+        return list;
+    cookieHeader.split(";").forEach((cookie) => {
+        const parts = cookie.split("=");
+        const key = parts.shift();
+        if (key) {
+            list[key.trim()] = decodeURI(parts.join("="));
+        }
+    });
+    return list;
+}
 const authService = new AuthService();
 export class AuthController {
     async register(req, res, next) {
@@ -8,7 +23,17 @@ export class AuthController {
             const deviceInfo = req.headers["user-agent"] || "Unknown Device";
             const ipAddress = req.ip || req.socket.remoteAddress || "Unknown IP";
             const result = await authService.register(parsedData, deviceInfo, ipAddress);
-            res.status(201).json(result);
+            // Set refresh token in httpOnly secure cookie
+            res.cookie("refreshToken", result.refreshToken, {
+                httpOnly: true,
+                secure: process.env.NODE_ENV === "production" || req.secure || req.headers["x-forwarded-proto"] === "https",
+                sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+                maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+            });
+            res.status(201).json({
+                user: result.user,
+                token: result.accessToken,
+            });
         }
         catch (error) {
             next(error);
@@ -20,7 +45,17 @@ export class AuthController {
             const deviceInfo = req.headers["user-agent"] || "Unknown Device";
             const ipAddress = req.ip || req.socket.remoteAddress || "Unknown IP";
             const result = await authService.login(parsedData, deviceInfo, ipAddress);
-            res.status(200).json(result);
+            // Set refresh token in httpOnly secure cookie
+            res.cookie("refreshToken", result.refreshToken, {
+                httpOnly: true,
+                secure: process.env.NODE_ENV === "production" || req.secure || req.headers["x-forwarded-proto"] === "https",
+                sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+                maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+            });
+            res.status(200).json({
+                user: result.user,
+                token: result.accessToken,
+            });
         }
         catch (error) {
             next(error);
@@ -28,14 +63,33 @@ export class AuthController {
     }
     async logout(req, res, next) {
         try {
-            const authHeader = req.headers.authorization;
-            const token = authHeader?.split(" ")[1];
-            if (!token) {
-                res.status(400).json({ error: "No token provided" });
-                return;
+            // Parse cookies manually to get refresh token
+            const cookies = parseCookies(req.headers.cookie);
+            const refreshToken = cookies.refreshToken || "";
+            if (refreshToken) {
+                await authService.logout(refreshToken);
             }
-            const result = await authService.logout(token);
-            res.status(200).json(result);
+            // Also invalidate session by access token sessionId if present
+            const authHeader = req.headers.authorization;
+            const accessToken = authHeader?.split(" ")[1];
+            if (accessToken) {
+                try {
+                    const decoded = verifyToken(accessToken);
+                    await prisma.session.updateMany({
+                        where: { id: decoded.sessionId },
+                        data: { isActive: false },
+                    });
+                }
+                catch (e) {
+                    // Ignore token verification errors during logout
+                }
+            }
+            res.clearCookie("refreshToken", {
+                httpOnly: true,
+                secure: process.env.NODE_ENV === "production" || req.secure || req.headers["x-forwarded-proto"] === "https",
+                sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+            });
+            res.status(200).json({ message: "Logged out successfully" });
         }
         catch (error) {
             next(error);
@@ -175,6 +229,23 @@ export class AuthController {
         }
         catch (error) {
             next(error);
+        }
+    }
+    async refresh(req, res, next) {
+        try {
+            const cookies = parseCookies(req.headers.cookie);
+            const refreshToken = cookies.refreshToken || "";
+            if (!refreshToken) {
+                res.status(401).json({ error: "Refresh token is missing" });
+                return;
+            }
+            const result = await authService.refresh(refreshToken);
+            res.status(200).json({
+                token: result.accessToken,
+            });
+        }
+        catch (error) {
+            res.status(401).json({ error: error.message || "Invalid refresh token" });
         }
     }
 }
