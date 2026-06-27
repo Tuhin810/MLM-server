@@ -6,6 +6,7 @@ import { prisma } from "../../config/db.js";
 import { TransactionType } from "@prisma/client";
 import { InventoryService } from "../product/InventoryService.js";
 import { commissionQueue } from "../../config/queue.js";
+import { sendEmail, generateOrderConfirmationTemplate } from "../../services/emailService.js";
 
 const inventoryService = new InventoryService();
 
@@ -101,6 +102,18 @@ export class OrderService {
       });
     } catch (err) {
       console.error("[Queue Error] Failed to queue commission job:", err);
+    }
+
+    // Trigger order confirmation email in the background
+    if (user.email) {
+      const emailHtml = generateOrderConfirmationTemplate(order, user);
+      sendEmail({
+        to: [{ email: user.email, name: user.name }],
+        subject: `Your Ajmaya Order Confirmation [#${order.id}]`,
+        htmlContent: emailHtml
+      }).catch((err) => {
+        console.error("[Email Error] Failed to send order confirmation email asynchronously:", err);
+      });
     }
 
     return order;
