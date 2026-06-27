@@ -110,20 +110,93 @@ model Wallet {
   updatedAt DateTime @updatedAt
 }
 
+model Category {
+  id            String        @id @default(uuid())
+  name          String        @unique
+  image         String?
+  subCategories SubCategory[]
+  products      Product[]
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+}
+
+model SubCategory {
+  id         String    @id @default(uuid())
+  name       String
+  categoryId String
+  category   Category  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  image      String?
+  products   Product[]
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@unique([categoryId, name])
+}
+
 model Product {
-  id          String               @id @default(uuid())
-  name        String
-  description String
-  image       String
-  price       Float
-  pointValue  Int
-  stock       Int
-  category    String               @default("General")
-  vendorId    String?
-  orders      Order[]
-  inventories FranchiseInventory[]
-  createdAt   DateTime             @default(now())
-  updatedAt   DateTime             @updatedAt
+  id              String                @id @default(uuid())
+  name            String
+  description     String
+  image           String
+  images          String[]
+  price           Float
+  pointValue      Int
+  stock           Int
+  category        String                @default("General")
+  categoryId      String?
+  categoryRef     Category?             @relation(fields: [categoryId], references: [id])
+  subCategoryId   String?
+  subCategory     SubCategory?          @relation(fields: [subCategoryId], references: [id])
+  vendorId        String?
+  sellingDetails  ProductSellingDetails?
+  orders          Order[]
+  inventories     FranchiseInventory[]
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+}
+
+model ProductSellingDetails {
+  id               String   @id @default(uuid())
+  productId        String   @unique
+  product          Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  // Pricing
+  mrpPrice         Float    @default(0)
+  sellingPrice     Float    @default(0)
+  discount         Float    @default(0)
+  superPointPrice  Float    @default(0)
+  pointOfSalePrice Float    @default(0)
+  dealerPrice      Float    @default(0)
+  resellerPrice    Float    @default(0)
+  productPoint     Float    @default(0)
+
+  // Tax & Compliance
+  gst              String?
+  sku              String?
+  hsnCode          String?
+
+  // Physical attributes
+  fashionFormats   String[]
+  fashionSizes     String[]
+  weightFormats    String[]
+
+  // Shipping & Policy
+  deliveryCharge   Float    @default(0)
+  returnPolicy     String?
+  taxes            String?
+
+  // Rich content
+  productDetails   String?
+  benefits         String?
+  features         String?
+
+  // Stock & Availability
+  leftStock        Int      @default(0)
+  availableStates  String[]
+  productType      String?
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 }
 
 model Order {
