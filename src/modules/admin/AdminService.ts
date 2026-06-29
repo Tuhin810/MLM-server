@@ -171,6 +171,16 @@ export class AdminService {
     return walletRepository.findAllTransactions();
   }
 
+  async getTransactionsPaginated({
+    page,
+    limit,
+    search,
+  }: { page: number; limit: number; search?: string }) {
+    const safePage = Number.isFinite(page) && page > 0 ? Math.floor(page) : 1;
+    const safeLimit = Number.isFinite(limit) && limit > 0 ? Math.min(Math.floor(limit), 100) : 10;
+    return walletRepository.findTransactionsPaginated({ page: safePage, limit: safeLimit, search });
+  }
+
   async getReferralStats() {
     const totalUsers = await prisma.user.count();
     const pointsSum = await prisma.wallet.aggregate({

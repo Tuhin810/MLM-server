@@ -89,6 +89,53 @@ export class WalletRepository {
     });
   }
 
+  async findTransactionsPaginated({
+    page,
+    limit,
+    search,
+  }: { page: number; limit: number; search?: string }) {
+    const where: Prisma.WalletTransactionWhereInput = search
+      ? {
+          OR: [
+            { description: { contains: search, mode: "insensitive" } },
+            { user: { name: { contains: search, mode: "insensitive" } } },
+            { user: { email: { contains: search, mode: "insensitive" } } },
+          ],
+        }
+      : {};
+
+    const skip = (page - 1) * limit;
+
+    const [transactions, total, depositAgg] = await Promise.all([
+      prisma.walletTransaction.findMany({
+        where,
+        include: { user: { select: { name: true, email: true } } },
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: limit,
+      }),
+      prisma.walletTransaction.count({ where }),
+      // "Deposits in" is a global money-flow metric: always across ALL deposit
+      // credits, independent of the ledger search/page.
+      prisma.walletTransaction.aggregate({
+        where: {
+          type: TransactionType.CREDIT,
+          description: { contains: "deposit", mode: "insensitive" },
+        },
+        _sum: { amount: true },
+      }),
+    ]);
+
+    return {
+      transactions,
+      total,
+      page,
+      limit,
+      totalPages: Math.max(1, Math.ceil(total / limit)),
+      summary: { depositsIn: depositAgg._sum.amount || 0 },
+    };
+  }
+
   async createIncomeLog(userId: string, amount: number, level: number) {
     return prisma.incomeLog.create({
       data: {

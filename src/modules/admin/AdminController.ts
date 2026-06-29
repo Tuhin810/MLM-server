@@ -86,6 +86,17 @@ export class AdminController {
 
   async getTransactions(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
+      // Paginated response when a `page` query param is supplied; otherwise
+      // return the full list (used by the Orders tab totals).
+      if (req.query.page !== undefined) {
+        const result = await adminService.getTransactionsPaginated({
+          page: parseInt(req.query.page as string, 10),
+          limit: parseInt(req.query.limit as string, 10),
+          search: (req.query.search as string) || "",
+        });
+        res.status(200).json(result);
+        return;
+      }
       const txs = await adminService.getAllTransactions();
       res.status(200).json(txs);
     } catch (error) {
