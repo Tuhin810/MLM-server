@@ -18,6 +18,17 @@ export class AdminController {
 
   async getUsers(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
+      // Paginated response when a `page` query param is supplied; otherwise
+      // return the full list (kept for the Auto Pool map and legacy callers).
+      if (req.query.page !== undefined) {
+        const result = await adminService.getUsersPaginated({
+          page: parseInt(req.query.page as string, 10),
+          limit: parseInt(req.query.limit as string, 10),
+          search: (req.query.search as string) || "",
+        });
+        res.status(200).json(result);
+        return;
+      }
       const users = await adminService.getAllUsers();
       res.status(200).json(users);
     } catch (error) {

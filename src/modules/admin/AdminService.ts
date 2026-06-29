@@ -34,6 +34,12 @@ export class AdminService {
     return userRepository.findAll();
   }
 
+  async getUsersPaginated({ page, limit, search }: { page: number; limit: number; search?: string }) {
+    const safePage = Number.isFinite(page) && page > 0 ? Math.floor(page) : 1;
+    const safeLimit = Number.isFinite(limit) && limit > 0 ? Math.min(Math.floor(limit), 100) : 10;
+    return userRepository.findPaginated({ page: safePage, limit: safeLimit, search });
+  }
+
   async getUserDetails(userId: string) {
     const user = await prisma.user.findUnique({
       where: { id: userId },
