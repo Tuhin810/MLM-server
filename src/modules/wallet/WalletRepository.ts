@@ -121,6 +121,68 @@ export class WalletRepository {
     });
   }
 
+  async findIncomeLogsPaginated({
+    page,
+    limit,
+    search,
+    type,
+  }: { page: number; limit: number; search?: string; type?: string }) {
+    // Search filters by the earning user's name/email. The type filter is kept
+    // separate so the summary breakdown can stay across all types.
+    const searchWhere: Prisma.IncomeLogWhereInput = search
+      ? {
+          user: {
+            OR: [
+              { name: { contains: search, mode: "insensitive" } },
+              { email: { contains: search, mode: "insensitive" } },
+            ],
+          },
+        }
+      : {};
+
+    const validType =
+      type && ["AUTO_POOL", "REFERRAL", "LEVEL"].includes(type) ? (type as IncomeType) : undefined;
+    const listWhere: Prisma.IncomeLogWhereInput = validType
+      ? { ...searchWhere, incomeType: validType }
+      : searchWhere;
+
+    const skip = (page - 1) * limit;
+
+    const [logs, total, grouped] = await Promise.all([
+      prisma.incomeLog.findMany({
+        where: listWhere,
+        include: { user: { select: { name: true, email: true } } },
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: limit,
+      }),
+      prisma.incomeLog.count({ where: listWhere }),
+      // Totals across the search-filtered set (ignoring the type filter) so the
+      // summary cards show the full breakdown regardless of the active page.
+      prisma.incomeLog.groupBy({
+        by: ["incomeType"],
+        where: searchWhere,
+        _sum: { amount: true },
+      }),
+    ]);
+
+    const summary: Record<string, number> = { total: 0, AUTO_POOL: 0, REFERRAL: 0, LEVEL: 0 };
+    for (const g of grouped) {
+      const amt = g._sum.amount || 0;
+      summary[g.incomeType] = amt;
+      summary.total += amt;
+    }
+
+    return {
+      logs,
+      total,
+      page,
+      limit,
+      totalPages: Math.max(1, Math.ceil(total / limit)),
+      summary,
+    };
+  }
+
   async sumTotalIncomeDistributed() {
     const aggregate = await prisma.incomeLog.aggregate({
       _sum: {

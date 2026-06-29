@@ -156,6 +156,17 @@ export class AdminService {
     return walletRepository.findAllIncomeLogs();
   }
 
+  async getIncomeLogsPaginated({
+    page,
+    limit,
+    search,
+    type,
+  }: { page: number; limit: number; search?: string; type?: string }) {
+    const safePage = Number.isFinite(page) && page > 0 ? Math.floor(page) : 1;
+    const safeLimit = Number.isFinite(limit) && limit > 0 ? Math.min(Math.floor(limit), 100) : 10;
+    return walletRepository.findIncomeLogsPaginated({ page: safePage, limit: safeLimit, search, type });
+  }
+
   async getAllTransactions() {
     return walletRepository.findAllTransactions();
   }

@@ -65,6 +65,18 @@ export class AdminController {
 
   async getIncomeLogs(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
+      // Paginated response when a `page` query param is supplied; otherwise
+      // return the full list (kept for any legacy callers).
+      if (req.query.page !== undefined) {
+        const result = await adminService.getIncomeLogsPaginated({
+          page: parseInt(req.query.page as string, 10),
+          limit: parseInt(req.query.limit as string, 10),
+          search: (req.query.search as string) || "",
+          type: (req.query.type as string) || "",
+        });
+        res.status(200).json(result);
+        return;
+      }
       const logs = await adminService.getAllIncomeLogs();
       res.status(200).json(logs);
     } catch (error) {
