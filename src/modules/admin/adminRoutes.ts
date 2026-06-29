@@ -34,5 +34,7 @@ router.get("/referrals/tree/:userId", authMiddleware as any, adminMiddleware as 
 
 // Enquiry management
 router.get("/enquiries", authMiddleware as any, adminMiddleware as any, adminController.getEnquiries);
+router.post("/enquiries/:id/messages", authMiddleware as any, adminMiddleware as any, adminController.sendAdminMessage);
+router.patch("/enquiries/:id/status", authMiddleware as any, adminMiddleware as any, adminController.updateEnquiryStatus);
 
 export default router;

@@ -255,9 +255,66 @@ export class AdminController {
     async getEnquiries(req, res, next) {
         try {
             const enquiries = await prisma.enquiry.findMany({
-                orderBy: { createdAt: "desc" },
+                include: {
+                    messages: { orderBy: { createdAt: "asc" } },
+                },
+                orderBy: { updatedAt: "desc" },
             });
             res.status(200).json(enquiries);
+        }
+        catch (error) {
+            next(error);
+        }
+    }
+    async sendAdminMessage(req, res, next) {
+        try {
+            const id = req.params.id;
+            const { message } = req.body;
+            if (!message || message.trim() === "") {
+                res.status(400).json({ error: "Message is required." });
+                return;
+            }
+            const enquiry = await prisma.enquiry.findUnique({ where: { id } });
+            if (!enquiry) {
+                res.status(404).json({ error: "Enquiry not found." });
+                return;
+            }
+            if (enquiry.status === "CLOSED") {
+                res.status(400).json({ error: "This enquiry is closed." });
+                return;
+            }
+            const newMessage = await prisma.enquiryMessage.create({
+                data: {
+                    content: message,
+                    sender: "ADMIN",
+                    enquiryId: id,
+                },
+            });
+            await prisma.enquiry.update({ where: { id }, data: { updatedAt: new Date() } });
+            res.status(201).json({ message: "Reply sent.", enquiryMessage: newMessage });
+        }
+        catch (error) {
+            next(error);
+        }
+    }
+    async updateEnquiryStatus(req, res, next) {
+        try {
+            const id = req.params.id;
+            const { status } = req.body;
+            if (!["OPEN", "CLOSED"].includes(status)) {
+                res.status(400).json({ error: "Status must be OPEN or CLOSED." });
+                return;
+            }
+            const enquiry = await prisma.enquiry.findUnique({ where: { id } });
+            if (!enquiry) {
+                res.status(404).json({ error: "Enquiry not found." });
+                return;
+            }
+            const updated = await prisma.enquiry.update({
+                where: { id },
+                data: { status },
+            });
+            res.status(200).json({ message: `Enquiry ${status.toLowerCase()}.`, enquiry: updated });
         }
         catch (error) {
             next(error);
