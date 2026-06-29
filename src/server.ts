@@ -11,6 +11,7 @@ import packageRoutes from "./modules/package/packageRoutes.js";
 import paymentRoutes from "./modules/payment/paymentRoutes.js";
 import categoryRoutes from "./modules/category/categoryRoutes.js";
 import subCategoryRoutes from "./modules/category/subCategoryRoutes.js";
+import enquiryRoutes from "./modules/enquiry/enquiryRoutes.js";
 import { errorMiddleware } from "./middleware/errorMiddleware.js";
 import { prisma } from "./config/db.js";
 import "./config/workers.js"; // Initialize BullMQ background workers
@@ -41,6 +42,7 @@ app.use("/api/packages", packageRoutes);
 app.use("/api/payment", paymentRoutes);
 app.use("/api/categories", categoryRoutes);
 app.use("/api/subcategories", subCategoryRoutes);
+app.use("/api/enquiries", enquiryRoutes);
 
 // Base Health Check
 app.get("/health", (req, res) => {

@@ -260,4 +260,15 @@ export class AdminController {
       next(error);
     }
   }
+
+  async getEnquiries(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const enquiries = await prisma.enquiry.findMany({
+        orderBy: { createdAt: "desc" },
+      });
+      res.status(200).json(enquiries);
+    } catch (error) {
+      next(error);
+    }
+  }
 }

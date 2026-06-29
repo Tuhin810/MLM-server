@@ -219,6 +219,10 @@ export class AuthService {
                     kycStatus: "APPROVED",
                     panCard: null,
                     aadhaarCard: null,
+                    panCardDoc: null,
+                    aadhaarCardDoc: null,
+                    kycSubmittedAt: null,
+                    kycRejectedReason: null,
                     holderName: null,
                     bankName: null,
                     accountNumber: null,
@@ -243,6 +247,10 @@ export class AuthService {
             kycStatus: user.kycStatus,
             panCard: user.panCard,
             aadhaarCard: user.aadhaarCard,
+            panCardDoc: user.panCardDoc,
+            aadhaarCardDoc: user.aadhaarCardDoc,
+            kycSubmittedAt: user.kycSubmittedAt,
+            kycRejectedReason: user.kycRejectedReason,
             holderName: user.holderName,
             bankName: user.bankName,
             accountNumber: user.accountNumber,
@@ -260,13 +268,35 @@ export class AuthService {
         return this.getProfile(userId);
     }
     async updateKyc(userId, data) {
-        const { panCard, aadhaarCard } = data;
+        const { panCard, aadhaarCard, panCardDoc, aadhaarCardDoc, holderName, bankName, accountNumber, ifscCode, } = data;
+        if (!panCard || !aadhaarCard) {
+            throw new Error("PAN and Aadhaar numbers are required");
+        }
+        if (!holderName || !bankName || !accountNumber || !ifscCode) {
+            throw new Error("Complete bank details are required for KYC submission");
+        }
+        // Block re-submission while already approved
+        const current = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { kycStatus: true },
+        });
+        if (current?.kycStatus === "APPROVED") {
+            throw new Error("Your KYC is already approved");
+        }
         await prisma.user.update({
             where: { id: userId },
             data: {
                 panCard,
                 aadhaarCard,
+                panCardDoc: panCardDoc || null,
+                aadhaarCardDoc: aadhaarCardDoc || null,
+                holderName,
+                bankName,
+                accountNumber,
+                ifscCode,
                 kycStatus: "PENDING",
+                kycSubmittedAt: new Date(),
+                kycRejectedReason: null,
             },
         });
         return this.getProfile(userId);

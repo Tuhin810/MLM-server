@@ -92,6 +92,7 @@ model User {
   packages       UserPackage[]
   withdrawals    Withdrawal[]
   sessions       Session[]
+  enquiries      Enquiry[]
 }
 
 model Admin {
@@ -326,4 +327,15 @@ model Session {
   isActive   Boolean  @default(true)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
+}
+
+model Enquiry {
+  id        String   @id @default(uuid())
+  name      String
+  email     String
+  mobile    String
+  message   String
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  createdAt DateTime @default(now())
 }

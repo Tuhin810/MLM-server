@@ -58,6 +58,36 @@ export class UserRepository {
             orderBy: { createdAt: "desc" },
         });
     }
+    async findPaginated({ page, limit, search }) {
+        const where = search
+            ? {
+                OR: [
+                    { name: { contains: search, mode: "insensitive" } },
+                    { email: { contains: search, mode: "insensitive" } },
+                    { referralCode: { contains: search, mode: "insensitive" } },
+                    { mobile: { contains: search } },
+                ],
+            }
+            : {};
+        const skip = (page - 1) * limit;
+        const [users, total] = await Promise.all([
+            prisma.user.findMany({
+                where,
+                include: { wallet: true, autoPoolMember: true },
+                orderBy: { createdAt: "desc" },
+                skip,
+                take: limit,
+            }),
+            prisma.user.count({ where }),
+        ]);
+        return {
+            users,
+            total,
+            page,
+            limit,
+            totalPages: Math.max(1, Math.ceil(total / limit)),
+        };
+    }
     async countAll() {
         return prisma.user.count();
     }

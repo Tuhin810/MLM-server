@@ -13,6 +13,9 @@ router.get("/transactions", authMiddleware, adminMiddleware, adminController.get
 // Withdrawal management
 router.get("/withdrawals", authMiddleware, adminMiddleware, adminController.getWithdrawals);
 router.patch("/withdrawals/:id", authMiddleware, adminMiddleware, adminController.updateWithdrawal);
+// KYC management
+router.get("/kyc", authMiddleware, adminMiddleware, adminController.getKycRequests);
+router.patch("/kyc/:userId", authMiddleware, adminMiddleware, adminController.updateKycStatus);
 // Package management
 router.get("/packages", authMiddleware, adminMiddleware, adminController.getPackages);
 router.post("/packages", authMiddleware, adminMiddleware, adminController.createPackage);
@@ -22,4 +25,6 @@ router.delete("/packages/:id", authMiddleware, adminMiddleware, adminController.
 router.get("/referrals/stats", authMiddleware, adminMiddleware, adminController.getReferralStats);
 router.get("/referrals/users", authMiddleware, adminMiddleware, adminController.getReferralUsers);
 router.get("/referrals/tree/:userId", authMiddleware, adminMiddleware, adminController.getReferralTree);
+// Enquiry management
+router.get("/enquiries", authMiddleware, adminMiddleware, adminController.getEnquiries);
 export default router;

@@ -32,4 +32,7 @@ router.get("/referrals/stats", authMiddleware as any, adminMiddleware as any, ad
 router.get("/referrals/users", authMiddleware as any, adminMiddleware as any, adminController.getReferralUsers);
 router.get("/referrals/tree/:userId", authMiddleware as any, adminMiddleware as any, adminController.getReferralTree);
 
+// Enquiry management
+router.get("/enquiries", authMiddleware as any, adminMiddleware as any, adminController.getEnquiries);
+
 export default router;

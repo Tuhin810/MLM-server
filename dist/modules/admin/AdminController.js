@@ -14,6 +14,17 @@ export class AdminController {
     }
     async getUsers(req, res, next) {
         try {
+            // Paginated response when a `page` query param is supplied; otherwise
+            // return the full list (kept for the Auto Pool map and legacy callers).
+            if (req.query.page !== undefined) {
+                const result = await adminService.getUsersPaginated({
+                    page: parseInt(req.query.page, 10),
+                    limit: parseInt(req.query.limit, 10),
+                    search: req.query.search || "",
+                });
+                res.status(200).json(result);
+                return;
+            }
             const users = await adminService.getAllUsers();
             res.status(200).json(users);
         }
@@ -98,6 +109,65 @@ export class AdminController {
             next(error);
         }
     }
+    async getKycRequests(req, res, next) {
+        try {
+            const requests = await prisma.user.findMany({
+                where: { kycSubmittedAt: { not: null } },
+                select: {
+                    id: true,
+                    name: true,
+                    email: true,
+                    mobile: true,
+                    kycStatus: true,
+                    panCard: true,
+                    aadhaarCard: true,
+                    panCardDoc: true,
+                    aadhaarCardDoc: true,
+                    holderName: true,
+                    bankName: true,
+                    accountNumber: true,
+                    ifscCode: true,
+                    kycSubmittedAt: true,
+                    kycRejectedReason: true,
+                },
+                orderBy: { kycSubmittedAt: "desc" },
+            });
+            res.status(200).json(requests);
+        }
+        catch (error) {
+            next(error);
+        }
+    }
+    async updateKycStatus(req, res, next) {
+        try {
+            const schema = z.object({
+                status: z.enum(["APPROVED", "REJECTED", "PENDING"]),
+                reason: z.string().optional(),
+            });
+            const { status, reason } = schema.parse(req.body);
+            const userId = req.params.userId;
+            const target = await prisma.user.findUnique({
+                where: { id: userId },
+                select: { kycSubmittedAt: true },
+            });
+            if (!target || !target.kycSubmittedAt) {
+                res.status(404).json({ error: "KYC request not found" });
+                return;
+            }
+            const user = await prisma.user.update({
+                where: { id: userId },
+                data: {
+                    kycStatus: status,
+                    kycRejectedReason: status === "REJECTED" ? (reason || "Documents could not be verified") : null,
+                },
+                select: { id: true, name: true, email: true, kycStatus: true, kycRejectedReason: true },
+            });
+            res.status(200).json({ message: `KYC ${status.toLowerCase()}`, user });
+        }
+        catch (error) {
+            next(error);
+        }
+    }
     async getPackages(req, res, next) {
         try {
             const packages = await prisma.package.findMany({ orderBy: { price: "asc" } });
@@ -177,6 +247,17 @@ export class AdminController {
             const { userId } = req.params;
             const tree = await adminService.getReferralTree(userId);
             res.status(200).json(tree);
+        }
+        catch (error) {
+            next(error);
+        }
+    }
+    async getEnquiries(req, res, next) {
+        try {
+            const enquiries = await prisma.enquiry.findMany({
+                orderBy: { createdAt: "desc" },
+            });
+            res.status(200).json(enquiries);
         }
         catch (error) {
             next(error);
