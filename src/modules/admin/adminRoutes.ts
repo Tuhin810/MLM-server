@@ -17,6 +17,10 @@ router.get("/transactions", authMiddleware as any, adminMiddleware as any, admin
 router.get("/withdrawals", authMiddleware as any, adminMiddleware as any, adminController.getWithdrawals);
 router.patch("/withdrawals/:id", authMiddleware as any, adminMiddleware as any, adminController.updateWithdrawal);
 
+// KYC management
+router.get("/kyc", authMiddleware as any, adminMiddleware as any, adminController.getKycRequests);
+router.patch("/kyc/:userId", authMiddleware as any, adminMiddleware as any, adminController.updateKycStatus);
+
 // Package management
 router.get("/packages", authMiddleware as any, adminMiddleware as any, adminController.getPackages);
 router.post("/packages", authMiddleware as any, adminMiddleware as any, adminController.createPackage);

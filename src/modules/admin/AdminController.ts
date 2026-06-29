@@ -104,6 +104,68 @@ export class AdminController {
     }
   }
 
+  async getKycRequests(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const requests = await prisma.user.findMany({
+        where: { kycSubmittedAt: { not: null } },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          mobile: true,
+          kycStatus: true,
+          panCard: true,
+          aadhaarCard: true,
+          panCardDoc: true,
+          aadhaarCardDoc: true,
+          holderName: true,
+          bankName: true,
+          accountNumber: true,
+          ifscCode: true,
+          kycSubmittedAt: true,
+          kycRejectedReason: true,
+        },
+        orderBy: { kycSubmittedAt: "desc" },
+      });
+      res.status(200).json(requests);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async updateKycStatus(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const schema = z.object({
+        status: z.enum(["APPROVED", "REJECTED", "PENDING"]),
+        reason: z.string().optional(),
+      });
+      const { status, reason } = schema.parse(req.body);
+      const userId = req.params.userId as string;
+
+      const target = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { kycSubmittedAt: true },
+      });
+      if (!target || !target.kycSubmittedAt) {
+        res.status(404).json({ error: "KYC request not found" });
+        return;
+      }
+
+      const user = await prisma.user.update({
+        where: { id: userId },
+        data: {
+          kycStatus: status,
+          kycRejectedReason: status === "REJECTED" ? (reason || "Documents could not be verified") : null,
+        },
+        select: { id: true, name: true, email: true, kycStatus: true, kycRejectedReason: true },
+      });
+
+      res.status(200).json({ message: `KYC ${status.toLowerCase()}`, user });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   async getPackages(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const packages = await prisma.package.findMany({ orderBy: { price: "asc" } });

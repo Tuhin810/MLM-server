@@ -96,11 +96,15 @@ export class WalletController {
         return;
       }
 
-      // Fetch bank details
+      // Fetch bank details + KYC status
       const user = await prisma.user.findUnique({
         where: { id: req.user.id },
-        select: { holderName: true, bankName: true, accountNumber: true, ifscCode: true },
+        select: { holderName: true, bankName: true, accountNumber: true, ifscCode: true, kycStatus: true },
       });
+      if (user?.kycStatus !== "APPROVED") {
+        res.status(403).json({ error: "Your KYC must be approved before you can request a withdrawal." });
+        return;
+      }
       if (!user?.accountNumber) {
         res.status(400).json({ error: "Please add your bank details in Profile before requesting a withdrawal." });
         return;
@@ -116,7 +120,12 @@ export class WalletController {
         data: {
           userId: req.user.id,
           amount,
-          bankDetails: user as any,
+          bankDetails: {
+            holderName: user.holderName,
+            bankName: user.bankName,
+            accountNumber: user.accountNumber,
+            ifscCode: user.ifscCode,
+          },
           status: "PENDING",
         },
       });

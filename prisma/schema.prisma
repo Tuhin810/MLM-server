@@ -69,6 +69,10 @@ model User {
   kycStatus      KycStatus           @default(PENDING)
   panCard        String?
   aadhaarCard    String?
+  panCardDoc     String?
+  aadhaarCardDoc String?
+  kycSubmittedAt DateTime?
+  kycRejectedReason String?
   bankName       String?
   accountNumber  String?
   ifscCode       String?
