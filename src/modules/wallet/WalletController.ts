@@ -89,9 +89,21 @@ export class WalletController {
       });
       const { amount } = schema.parse(req.body);
 
-      // Check sufficient balance
+      // Check sufficient balance. Funds are NOT debited until an admin
+      // approves the request, so we must also reserve any amounts that are
+      // already locked up in other PENDING withdrawal requests to prevent
+      // the user from requesting more than they actually have.
       const wallet = await walletRepository.findByUserId(req.user.id);
-      if (!wallet || wallet.balance < amount) {
+      if (!wallet) {
+        res.status(400).json({ error: "Wallet not found" });
+        return;
+      }
+      const pendingAgg = await prisma.withdrawal.aggregate({
+        where: { userId: req.user.id, status: "PENDING" },
+        _sum: { amount: true },
+      });
+      const pendingTotal = pendingAgg._sum.amount || 0;
+      if (wallet.balance - pendingTotal < amount) {
         res.status(400).json({ error: "Insufficient wallet balance" });
         return;
       }
@@ -110,10 +122,10 @@ export class WalletController {
         return;
       }
 
-      // Debit from wallet
-      await walletRepository.updateBalanceAndPoints(
-        req.user.id, -amount, 0, TransactionType.WITHDRAWAL, `Withdrawal request of ₹${amount}`
-      );
+      // NOTE: the wallet is intentionally NOT debited here. The balance is
+      // only deducted once an admin approves the request (see
+      // AdminController.updateWithdrawal). Until then the funds remain in the
+      // wallet but are reserved by the pending-balance check above.
 
       // Create withdrawal record
       const withdrawal = await prisma.withdrawal.create({

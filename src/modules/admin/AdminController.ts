@@ -97,18 +97,35 @@ export class AdminController {
     try {
       const schema = z.object({ status: z.enum(["APPROVED", "REJECTED", "SETTLED"]) });
       const { status } = schema.parse(req.body);
+
+      const existing = await prisma.withdrawal.findUnique({
+        where: { id: req.params.id as string },
+      });
+      if (!existing) {
+        res.status(404).json({ error: "Withdrawal not found" });
+        return;
+      }
+
+      // The wallet is debited only when a PENDING request is approved. This is
+      // the single point at which the balance is reduced — nothing is deducted
+      // at request time, and rejecting a pending request requires no refund.
+      if (status === "APPROVED" && existing.status === "PENDING") {
+        const { WalletRepository } = await import("../wallet/WalletRepository.js");
+        const walletRepo = new WalletRepository();
+        const wallet = await walletRepo.findByUserId(existing.userId);
+        if (!wallet || wallet.balance < existing.amount) {
+          res.status(400).json({ error: "User has insufficient wallet balance to approve this withdrawal." });
+          return;
+        }
+        await walletRepo.updateBalanceAndPoints(
+          existing.userId, -existing.amount, 0, "WITHDRAWAL" as any, `Withdrawal #${existing.id.slice(-6)} approved`
+        );
+      }
+
       const withdrawal = await prisma.withdrawal.update({
         where: { id: req.params.id as string },
         data: { status },
       });
-      // If rejected, refund the wallet
-      if (status === "REJECTED") {
-        const { WalletRepository } = await import("../wallet/WalletRepository.js");
-        const walletRepo = new WalletRepository();
-        await walletRepo.updateBalanceAndPoints(
-          withdrawal.userId, withdrawal.amount, 0, "CREDIT" as any, `Withdrawal #${withdrawal.id.slice(-6)} rejected — refunded`
-        );
-      }
       res.status(200).json({ message: `Withdrawal ${status.toLowerCase()}`, withdrawal });
     } catch (error) {
       next(error);
