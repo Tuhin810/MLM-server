@@ -37,4 +37,8 @@ router.get("/enquiries", authMiddleware as any, adminMiddleware as any, adminCon
 router.post("/enquiries/:id/messages", authMiddleware as any, adminMiddleware as any, adminController.sendAdminMessage);
 router.patch("/enquiries/:id/status", authMiddleware as any, adminMiddleware as any, adminController.updateEnquiryStatus);
 
+// Franchise management
+router.post("/franchises", authMiddleware as any, adminMiddleware as any, adminController.createFranchise);
+router.get("/franchises", authMiddleware as any, adminMiddleware as any, adminController.getFranchises);
+
 export default router;

@@ -93,6 +93,7 @@ model User {
   withdrawals    Withdrawal[]
   sessions       Session[]
   enquiries      Enquiry[]
+  franchise      Franchise?
 }
 
 model Admin {
@@ -304,13 +305,14 @@ model Withdrawal {
 }
 
 model FranchiseInventory {
-  id          String   @id @default(uuid())
+  id          String    @id @default(uuid())
   franchiseId String
+  franchise   Franchise @relation(fields: [franchiseId], references: [id], onDelete: Cascade)
   productId   String
-  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  quantity    Int      @default(0)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  product     Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  quantity    Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   @@unique([franchiseId, productId])
 }
@@ -350,4 +352,27 @@ model EnquiryMessage {
   enquiryId String
   enquiry   Enquiry  @relation(fields: [enquiryId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
+}
+
+model Franchise {
+  id                   String               @id @default(uuid())
+  userId               String               @unique
+  user                 User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  franchiseType        Role                 @default(CITY_FRANCHISE)
+  state                String
+  district             String
+  tehsil               String
+  cityVillage          String
+  pincode              String
+  brandName            String
+  mobileNo             String
+  email                String               @unique
+  country              String               @default("India")
+  profileImage         String?
+  fullAddress          String
+  agreementDescription String?              @db.Text
+  status               String               @default("ACTIVE")
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+  inventories          FranchiseInventory[]
 }

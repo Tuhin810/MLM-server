@@ -29,4 +29,7 @@ router.get("/referrals/tree/:userId", authMiddleware, adminMiddleware, adminCont
 router.get("/enquiries", authMiddleware, adminMiddleware, adminController.getEnquiries);
 router.post("/enquiries/:id/messages", authMiddleware, adminMiddleware, adminController.sendAdminMessage);
 router.patch("/enquiries/:id/status", authMiddleware, adminMiddleware, adminController.updateEnquiryStatus);
+// Franchise management
+router.post("/franchises", authMiddleware, adminMiddleware, adminController.createFranchise);
+router.get("/franchises", authMiddleware, adminMiddleware, adminController.getFranchises);
 export default router;

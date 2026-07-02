@@ -3,6 +3,8 @@ import { AdminService } from "./AdminService.js";
 import { AuthenticatedRequest } from "../auth/authMiddleware.js";
 import { prisma } from "../../config/db.js";
 import { z } from "zod";
+import bcrypt from "bcryptjs";
+import { sendEmail, generateFranchiseWelcomeTemplate } from "../../services/emailService.js";
 
 const adminService = new AdminService();
 
@@ -373,6 +375,130 @@ export class AdminController {
       });
 
       res.status(200).json({ message: `Enquiry ${status.toLowerCase()}.`, enquiry: updated });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async createFranchise(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const schema = z.object({
+        franchiseType: z.enum(["STATE_FRANCHISE", "DISTRICT_FRANCHISE", "TEHSIL_FRANCHISE", "CITY_FRANCHISE"]),
+        state: z.string().min(1),
+        district: z.string().min(1),
+        tehsil: z.string().min(1),
+        cityVillage: z.string().min(1),
+        pincode: z.string().min(1),
+        franchiseName: z.string().min(1),
+        brandName: z.string().min(1),
+        mobileNo: z.string().min(1),
+        email: z.string().email(),
+        password: z.string().min(6),
+        profileImage: z.string().optional().nullable(),
+        fullAddress: z.string().min(1),
+        agreementDescription: z.string().optional().nullable(),
+      });
+
+      const body = schema.parse(req.body);
+
+      // Check if email already exists
+      const existingUser = await prisma.user.findUnique({
+        where: { email: body.email },
+      });
+      if (existingUser) {
+        res.status(400).json({ error: "Email is already in use by another user account." });
+        return;
+      }
+
+      // Hash password
+      const hashedPassword = await bcrypt.hash(body.password, 10);
+
+      // Generate unique referral code
+      let referralCode = "";
+      let isUnique = false;
+      while (!isUnique) {
+        const randomPart = Math.random().toString(36).substring(2, 8).toUpperCase();
+        const prefix = body.franchiseName.substring(0, 3).replace(/[^a-zA-Z]/g, "").toUpperCase() || "FLM";
+        referralCode = `${prefix}${randomPart}`;
+        const check = await prisma.user.findUnique({ where: { referralCode } });
+        if (!check) isUnique = true;
+      }
+
+      // Create user, wallet, and franchise in a transaction
+      const result = await prisma.$transaction(async (tx) => {
+        const user = await tx.user.create({
+          data: {
+            name: body.franchiseName,
+            email: body.email,
+            mobile: body.mobileNo,
+            password: hashedPassword,
+            referralCode,
+            role: body.franchiseType,
+            status: "ACTIVE",
+            state: body.state,
+            district: body.district,
+            tehsil: body.tehsil,
+            city: body.cityVillage,
+          },
+        });
+
+        await tx.wallet.create({
+          data: {
+            userId: user.id,
+            balance: 0,
+            points: 0,
+          },
+        });
+
+        const franchise = await tx.franchise.create({
+          data: {
+            userId: user.id,
+            franchiseType: body.franchiseType,
+            state: body.state,
+            district: body.district,
+            tehsil: body.tehsil,
+            cityVillage: body.cityVillage,
+            pincode: body.pincode,
+            brandName: body.brandName,
+            mobileNo: body.mobileNo,
+            email: body.email,
+            profileImage: body.profileImage || null,
+            fullAddress: body.fullAddress,
+            agreementDescription: body.agreementDescription || null,
+            status: "ACTIVE",
+          },
+        });
+
+        return franchise;
+      });
+
+      // Send greeting email in background
+      try {
+        const emailContent = generateFranchiseWelcomeTemplate(body, body.password);
+        await sendEmail({
+          to: [{ email: body.email, name: body.franchiseName }],
+          subject: "Welcome to Ajmaya! Your Franchise Account details",
+          htmlContent: emailContent,
+        });
+      } catch (emailErr) {
+        console.error("[AdminController] Welcome email sending failed:", emailErr);
+      }
+
+      res.status(201).json({
+        message: "Franchise registered and onboarding email sent successfully.",
+        franchise: result,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async getFranchises(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const franchises = await prisma.franchise.findMany({
+        orderBy: { createdAt: "desc" },
+      });
+      res.status(200).json(franchises);
     } catch (error) {
       next(error);
     }

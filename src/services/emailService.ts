@@ -210,3 +210,125 @@ export function generateOrderConfirmationTemplate(order: any, user: any): string
     </html>
   `;
 }
+
+export function generateFranchiseWelcomeTemplate(franchise: any, password: string): string {
+  const logoUrl = "https://res.cloudinary.com/diecfwnp9/image/upload/v1782038971/ChatGPT_Image_Jun_21_2026_04_19_18_PM_beehb7.png";
+  
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <title>Welcome to Ajmaya Franchise</title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    </head>
+    <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f7fafc; margin: 0; padding: 0;">
+      <table border="0" cellpadding="0" cellspacing="0" width="100%" style="table-layout: fixed; background-color: #f7fafc; padding: 40px 0;">
+        <tr>
+          <td align="center">
+            <table border="0" cellpadding="0" cellspacing="0" width="600" style="background-color: #ffffff; border-radius: 16px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);">
+              
+              <!-- Header Section -->
+              <tr>
+                <td align="center" style="background-color: #f8fafc; padding: 30px; border-bottom: 1px solid #edf2f7; text-align: center;">
+                  <table border="0" cellpadding="0" cellspacing="0" style="margin: 0 auto;">
+                    <tr>
+                      <td align="center" style="vertical-align: middle;">
+                        <img src="${logoUrl}" alt="Ajmaya Logo" width="36" height="36" style="display: block; outline: none; border: none;" />
+                      </td>
+                      <td align="center" style="vertical-align: middle; padding-left: 10px; font-size: 20px; font-weight: 800; color: #1a202c; letter-spacing: -0.5px;">
+                        Ajmaya
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+
+              <!-- Greeting & Hero Card -->
+              <tr>
+                <td style="padding: 40px 40px 20px 40px;">
+                  <h1 style="font-size: 24px; font-weight: 800; color: #1a202c; margin: 0 0 10px 0; letter-spacing: -0.5px;">Welcome to Ajmaya, ${franchise.franchiseName}!</h1>
+                  <p style="font-size: 15px; color: #4a5568; line-height: 1.6; margin: 0;">
+                    We are thrilled to inform you that your franchise registration has been approved. Below are your operator login credentials and registered location details.
+                  </p>
+                </td>
+              </tr>
+
+              <!-- Credentials Card -->
+              <tr>
+                <td style="padding: 0 40px 20px 40px;">
+                  <div style="background-color: #f8fafc; border-radius: 12px; border: 1px solid #edf2f7; padding: 20px;">
+                    <h3 style="font-size: 16px; font-weight: 700; color: #1a202c; margin: 0 0 15px 0;">Your Account Credentials</h3>
+                    <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                      <tr>
+                        <td style="font-size: 13px; color: #718096; padding-bottom: 8px;">Login Email:</td>
+                        <td style="font-size: 13px; font-weight: bold; color: #1a202c; text-align: right; padding-bottom: 8px;">${franchise.email}</td>
+                      </tr>
+                      <tr>
+                        <td style="font-size: 13px; color: #718096; padding-bottom: 8px;">Password:</td>
+                        <td style="font-size: 13px; font-weight: bold; color: #0B6C6D; text-align: right; padding-bottom: 8px;">${password}</td>
+                      </tr>
+                      <tr>
+                        <td style="font-size: 13px; color: #718096;">Account Role:</td>
+                        <td style="font-size: 13px; font-weight: bold; color: #1a202c; text-align: right;">${franchise.franchiseType.replace("_", " ")}</td>
+                      </tr>
+                    </table>
+                  </div>
+                </td>
+              </tr>
+
+              <!-- Location & Details Card -->
+              <tr>
+                <td style="padding: 0 40px 20px 40px;">
+                  <div style="background-color: #f8fafc; border-radius: 12px; border: 1px solid #edf2f7; padding: 20px;">
+                    <h3 style="font-size: 16px; font-weight: 700; color: #1a202c; margin: 0 0 15px 0;">Franchise & Location Details</h3>
+                    <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                      <tr>
+                        <td style="font-size: 13px; color: #718096; padding-bottom: 8px;">Brand Name:</td>
+                        <td style="font-size: 13px; font-weight: bold; color: #1a202c; text-align: right; padding-bottom: 8px;">${franchise.brandName}</td>
+                      </tr>
+                      <tr>
+                        <td style="font-size: 13px; color: #718096; padding-bottom: 8px;">Mobile No:</td>
+                        <td style="font-size: 13px; font-weight: bold; color: #1a202c; text-align: right; padding-bottom: 8px;">${franchise.mobileNo}</td>
+                      </tr>
+                      <tr>
+                        <td style="font-size: 13px; color: #718096; padding-bottom: 8px;">Jurisdiction State:</td>
+                        <td style="font-size: 13px; font-weight: bold; color: #1a202c; text-align: right; padding-bottom: 8px;">${franchise.state}</td>
+                      </tr>
+                      <tr>
+                        <td style="font-size: 13px; color: #718096; padding-bottom: 8px;">District:</td>
+                        <td style="font-size: 13px; font-weight: bold; color: #1a202c; text-align: right; padding-bottom: 8px;">${franchise.district}</td>
+                      </tr>
+                      <tr>
+                        <td style="font-size: 13px; color: #718096; padding-bottom: 8px;">Tehsil / City / Village:</td>
+                        <td style="font-size: 13px; font-weight: bold; color: #1a202c; text-align: right; padding-bottom: 8px;">${franchise.tehsil} / ${franchise.cityVillage}</td>
+                      </tr>
+                      <tr>
+                        <td style="font-size: 13px; color: #718096;">Pincode:</td>
+                        <td style="font-size: 13px; font-weight: bold; color: #1a202c; text-align: right;">${franchise.pincode}</td>
+                      </tr>
+                    </table>
+                  </div>
+                </td>
+              </tr>
+
+              <!-- Footer Section -->
+              <tr>
+                <td align="center" style="background-color: #f8fafc; padding: 30px; border-top: 1px solid #edf2f7; text-align: center;">
+                  <p style="font-size: 12px; color: #a0aec0; line-height: 1.5; margin: 0 0 10px 0;">
+                    Please change your password immediately after your first login for security reasons.
+                  </p>
+                  <p style="font-size: 11px; color: #cbd5e0; margin: 0;">
+                    &copy; ${new Date().getFullYear()} Ajmaya E-Commerce Inc. All Rights Reserved.
+                  </p>
+                </td>
+              </tr>
+
+            </table>
+          </td>
+        </tr>
+      </table>
+    </body>
+    </html>
+  `;
+}
