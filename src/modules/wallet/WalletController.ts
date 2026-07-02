@@ -160,4 +160,73 @@ export class WalletController {
       next(error);
     }
   }
+
+  async submitFranchiseFundRequest(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      if (!req.user) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+      }
+
+      // Check if user is a franchise and get franchise ID
+      const franchise = await prisma.franchise.findUnique({
+        where: { userId: req.user.id },
+      });
+      if (!franchise) {
+        res.status(403).json({ error: "Access denied. Only franchises can request funds." });
+        return;
+      }
+
+      const schema = z.object({
+        amount: z.preprocess((val) => parseFloat(val as string), z.number().positive("Amount must be positive")),
+        paymentProof: z.string().optional().nullable(),
+      });
+
+      const { amount, paymentProof } = schema.parse(req.body);
+
+      const fundRequest = await prisma.franchiseFundRequest.create({
+        data: {
+          franchiseId: franchise.id,
+          amount,
+          paymentProof: paymentProof || null,
+          status: "PENDING",
+        },
+      });
+
+      res.status(201).json({
+        message: "Fund reload request submitted successfully.",
+        fundRequest,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async getFranchiseFundRequests(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      if (!req.user) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+      }
+
+      // Find the franchise
+      const franchise = await prisma.franchise.findUnique({
+        where: { userId: req.user.id },
+      });
+      if (!franchise) {
+        res.status(403).json({ error: "Access denied. Only franchises can view fund requests." });
+        return;
+      }
+
+      const fundRequests = await prisma.franchiseFundRequest.findMany({
+        where: { franchiseId: franchise.id },
+        orderBy: { createdAt: "desc" },
+      });
+
+      res.status(200).json(fundRequests);
+    } catch (error) {
+      next(error);
+    }
+  }
 }
+

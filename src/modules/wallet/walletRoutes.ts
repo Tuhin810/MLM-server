@@ -11,5 +11,7 @@ router.post("/deposit", authMiddleware as any, walletController.deposit);
 router.get("/income-logs", authMiddleware as any, walletController.getIncomeLogs);
 router.post("/withdraw", authMiddleware as any, walletController.requestWithdrawal);
 router.get("/withdrawals", authMiddleware as any, walletController.getWithdrawals);
+router.post("/franchise/fund-request", authMiddleware as any, walletController.submitFranchiseFundRequest);
+router.get("/franchise/fund-requests", authMiddleware as any, walletController.getFranchiseFundRequests);
 
 export default router;

@@ -49,4 +49,8 @@ router.patch("/franchises/:id/status", authMiddleware as any, adminMiddleware as
 router.get("/franchise-orders", authMiddleware as any, adminMiddleware as any, adminController.getFranchiseOrders);
 router.patch("/franchise-orders/:id/status", authMiddleware as any, adminMiddleware as any, adminController.updateFranchiseOrderStatus);
 
+// Franchise Fund Requests
+router.get("/franchise-fund-requests", authMiddleware as any, adminMiddleware as any, adminController.getFranchiseFundRequests);
+router.patch("/franchise-fund-requests/:id/status", authMiddleware as any, adminMiddleware as any, adminController.updateFranchiseFundRequestStatus);
+
 export default router;

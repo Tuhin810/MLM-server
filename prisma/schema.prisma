@@ -54,6 +54,13 @@ enum WithdrawalStatus {
   SETTLED
 }
 
+enum FundRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+
 model User {
   id             String              @id @default(uuid())
   name           String
@@ -378,6 +385,7 @@ model Franchise {
   updatedAt            DateTime             @updatedAt
   inventories          FranchiseInventory[]
   orders               FranchiseOrder[]
+  fundRequests         FranchiseFundRequest[]
 }
 
 model FranchiseOrder {
@@ -395,3 +403,16 @@ model FranchiseOrder {
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 }
+
+model FranchiseFundRequest {
+  id             String            @id @default(uuid())
+  franchiseId    String
+  franchise      Franchise         @relation(fields: [franchiseId], references: [id], onDelete: Cascade)
+  amount         Float
+  paymentProof   String?
+  status         FundRequestStatus @default(PENDING)
+  processedAt    DateTime?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+}
+

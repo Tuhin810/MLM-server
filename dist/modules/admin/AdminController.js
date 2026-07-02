@@ -789,4 +789,74 @@ export class AdminController {
             next(error);
         }
     }
+    async getFranchiseFundRequests(req, res, next) {
+        try {
+            const fundRequests = await prisma.franchiseFundRequest.findMany({
+                include: {
+                    franchise: {
+                        include: {
+                            user: {
+                                select: {
+                                    name: true,
+                                    email: true,
+                                    referralCode: true,
+                                }
+                            }
+                        }
+                    }
+                },
+                orderBy: { createdAt: "desc" },
+            });
+            res.status(200).json(fundRequests);
+        }
+        catch (error) {
+            next(error);
+        }
+    }
+    async updateFranchiseFundRequestStatus(req, res, next) {
+        try {
+            const id = req.params.id;
+            const schema = z.object({
+                status: z.enum(["APPROVED", "REJECTED"]),
+            });
+            const { status } = schema.parse(req.body);
+            const fundRequest = await prisma.franchiseFundRequest.findUnique({
+                where: { id },
+                include: {
+                    franchise: {
+                        select: {
+                            userId: true,
+                        }
+                    }
+                }
+            });
+            if (!fundRequest) {
+                res.status(404).json({ error: "Fund request not found." });
+                return;
+            }
+            if (fundRequest.status !== "PENDING") {
+                res.status(400).json({ error: "This fund request has already been processed." });
+                return;
+            }
+            const updatedRequest = await prisma.$transaction(async (tx) => {
+                const updated = await tx.franchiseFundRequest.update({
+                    where: { id },
+                    data: {
+                        status,
+                        processedAt: new Date(),
+                    },
+                });
+                return updated;
+            });
+            if (status === "APPROVED") {
+                const { WalletRepository } = await import("../wallet/WalletRepository.js");
+                const walletRepo = new WalletRepository();
+                await walletRepo.updateBalanceAndPoints(fundRequest.franchise.userId, fundRequest.amount, 0, "CREDIT", `Franchise fund reload request approved: ₹${fundRequest.amount.toFixed(2)}`);
+            }
+            res.status(200).json(updatedRequest);
+        }
+        catch (error) {
+            next(error);
+        }
+    }
 }
