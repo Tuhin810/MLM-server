@@ -61,6 +61,18 @@ export class AdminController {
     }
     async getIncomeLogs(req, res, next) {
         try {
+            // Paginated response when a `page` query param is supplied; otherwise
+            // return the full list (kept for any legacy callers).
+            if (req.query.page !== undefined) {
+                const result = await adminService.getIncomeLogsPaginated({
+                    page: parseInt(req.query.page, 10),
+                    limit: parseInt(req.query.limit, 10),
+                    search: req.query.search || "",
+                    type: req.query.type || "",
+                });
+                res.status(200).json(result);
+                return;
+            }
             const logs = await adminService.getAllIncomeLogs();
             res.status(200).json(logs);
         }
@@ -70,6 +82,17 @@ export class AdminController {
     }
     async getTransactions(req, res, next) {
         try {
+            // Paginated response when a `page` query param is supplied; otherwise
+            // return the full list (used by the Orders tab totals).
+            if (req.query.page !== undefined) {
+                const result = await adminService.getTransactionsPaginated({
+                    page: parseInt(req.query.page, 10),
+                    limit: parseInt(req.query.limit, 10),
+                    search: req.query.search || "",
+                });
+                res.status(200).json(result);
+                return;
+            }
             const txs = await adminService.getAllTransactions();
             res.status(200).json(txs);
         }
@@ -93,16 +116,30 @@ export class AdminController {
         try {
             const schema = z.object({ status: z.enum(["APPROVED", "REJECTED", "SETTLED"]) });
             const { status } = schema.parse(req.body);
+            const existing = await prisma.withdrawal.findUnique({
+                where: { id: req.params.id },
+            });
+            if (!existing) {
+                res.status(404).json({ error: "Withdrawal not found" });
+                return;
+            }
+            // The wallet is debited only when a PENDING request is approved. This is
+            // the single point at which the balance is reduced — nothing is deducted
+            // at request time, and rejecting a pending request requires no refund.
+            if (status === "APPROVED" && existing.status === "PENDING") {
+                const { WalletRepository } = await import("../wallet/WalletRepository.js");
+                const walletRepo = new WalletRepository();
+                const wallet = await walletRepo.findByUserId(existing.userId);
+                if (!wallet || wallet.balance < existing.amount) {
+                    res.status(400).json({ error: "User has insufficient wallet balance to approve this withdrawal." });
+                    return;
+                }
+                await walletRepo.updateBalanceAndPoints(existing.userId, -existing.amount, 0, "WITHDRAWAL", `Withdrawal #${existing.id.slice(-6)} approved`);
+            }
             const withdrawal = await prisma.withdrawal.update({
                 where: { id: req.params.id },
                 data: { status },
             });
-            // If rejected, refund the wallet
-            if (status === "REJECTED") {
-                const { WalletRepository } = await import("../wallet/WalletRepository.js");
-                const walletRepo = new WalletRepository();
-                await walletRepo.updateBalanceAndPoints(withdrawal.userId, withdrawal.amount, 0, "CREDIT", `Withdrawal #${withdrawal.id.slice(-6)} rejected — refunded`);
-            }
             res.status(200).json({ message: `Withdrawal ${status.toLowerCase()}`, withdrawal });
         }
         catch (error) {
