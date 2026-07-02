@@ -43,5 +43,10 @@ router.get("/franchises", authMiddleware as any, adminMiddleware as any, adminCo
 router.get("/franchises/:id", authMiddleware as any, adminMiddleware as any, adminController.getFranchiseById);
 router.put("/franchises/:id", authMiddleware as any, adminMiddleware as any, adminController.updateFranchise);
 router.delete("/franchises/:id", authMiddleware as any, adminMiddleware as any, adminController.deleteFranchise);
+router.patch("/franchises/:id/status", authMiddleware as any, adminMiddleware as any, adminController.updateFranchiseStatus);
+
+// Franchise Orders
+router.get("/franchise-orders", authMiddleware as any, adminMiddleware as any, adminController.getFranchiseOrders);
+router.patch("/franchise-orders/:id/status", authMiddleware as any, adminMiddleware as any, adminController.updateFranchiseOrderStatus);
 
 export default router;

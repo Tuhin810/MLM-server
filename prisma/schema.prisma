@@ -157,6 +157,7 @@ model Product {
   sellingDetails  ProductSellingDetails?
   orders          Order[]
   inventories     FranchiseInventory[]
+  franchiseOrders FranchiseOrder[]
   createdAt       DateTime              @default(now())
   updatedAt       DateTime              @updatedAt
 }
@@ -376,4 +377,21 @@ model Franchise {
   createdAt            DateTime             @default(now())
   updatedAt            DateTime             @updatedAt
   inventories          FranchiseInventory[]
+  orders               FranchiseOrder[]
+}
+
+model FranchiseOrder {
+  id             String    @id @default(uuid())
+  franchiseId    String
+  franchise      Franchise @relation(fields: [franchiseId], references: [id], onDelete: Cascade)
+  productId      String
+  product        Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  sellingPrice   Float
+  quantity       Int
+  orderTotal     Float
+  paymentMode    String    @default("Wallet")
+  paymentProof   String?
+  deliveryStatus String    @default("PENDING")
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 }
