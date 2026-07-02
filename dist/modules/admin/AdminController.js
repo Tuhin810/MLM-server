@@ -432,6 +432,7 @@ export class AdminController {
                         tehsil: body.tehsil,
                         cityVillage: body.cityVillage,
                         pincode: body.pincode,
+                        franchiseName: body.franchiseName,
                         brandName: body.brandName,
                         mobileNo: body.mobileNo,
                         email: body.email,
@@ -470,6 +471,115 @@ export class AdminController {
                 orderBy: { createdAt: "desc" },
             });
             res.status(200).json(franchises);
+        }
+        catch (error) {
+            next(error);
+        }
+    }
+    async updateFranchise(req, res, next) {
+        try {
+            const id = req.params.id;
+            const schema = z.object({
+                franchiseType: z.enum(["STATE_FRANCHISE", "DISTRICT_FRANCHISE", "TEHSIL_FRANCHISE", "CITY_FRANCHISE"]),
+                state: z.string().min(1),
+                district: z.string().min(1),
+                tehsil: z.string().min(1),
+                cityVillage: z.string().min(1),
+                pincode: z.string().min(1),
+                franchiseName: z.string().min(1),
+                brandName: z.string().min(1),
+                mobileNo: z.string().min(1),
+                profileImage: z.string().optional().nullable(),
+                password: z.string().min(6).optional().nullable(),
+                fullAddress: z.string().min(1),
+                status: z.string().default("ACTIVE"),
+                agreementDescription: z.string().optional().nullable(),
+            });
+            const body = schema.parse(req.body);
+            const franchise = await prisma.franchise.findUnique({ where: { id } });
+            if (!franchise) {
+                res.status(404).json({ error: "Franchise not found." });
+                return;
+            }
+            const updated = await prisma.$transaction(async (tx) => {
+                // Prepare user update data
+                const userUpdateData = {
+                    name: body.franchiseName,
+                    mobile: body.mobileNo,
+                    role: body.franchiseType,
+                    status: body.status,
+                    state: body.state,
+                    district: body.district,
+                    tehsil: body.tehsil,
+                    city: body.cityVillage,
+                };
+                if (body.password) {
+                    userUpdateData.password = await bcrypt.hash(body.password, 10);
+                }
+                // Update user
+                await tx.user.update({
+                    where: { id: franchise.userId },
+                    data: userUpdateData,
+                });
+                // Update franchise
+                const updatedFranchise = await tx.franchise.update({
+                    where: { id },
+                    data: {
+                        franchiseType: body.franchiseType,
+                        state: body.state,
+                        district: body.district,
+                        tehsil: body.tehsil,
+                        cityVillage: body.cityVillage,
+                        pincode: body.pincode,
+                        franchiseName: body.franchiseName,
+                        brandName: body.brandName,
+                        mobileNo: body.mobileNo,
+                        profileImage: body.profileImage || null,
+                        fullAddress: body.fullAddress,
+                        agreementDescription: body.agreementDescription || null,
+                        status: body.status,
+                    },
+                });
+                return updatedFranchise;
+            });
+            res.status(200).json({
+                message: "Franchise updated successfully.",
+                franchise: updated,
+            });
+        }
+        catch (error) {
+            next(error);
+        }
+    }
+    async deleteFranchise(req, res, next) {
+        try {
+            const id = req.params.id;
+            const franchise = await prisma.franchise.findUnique({ where: { id } });
+            if (!franchise) {
+                res.status(404).json({ error: "Franchise not found." });
+                return;
+            }
+            // Cascade delete is configured on User -> Franchise link, so deleting User deletes Franchise automatically
+            await prisma.user.delete({
+                where: { id: franchise.userId },
+            });
+            res.status(200).json({ message: "Franchise deleted successfully." });
+        }
+        catch (error) {
+            next(error);
+        }
+    }
+    async getFranchiseById(req, res, next) {
+        try {
+            const id = req.params.id;
+            const franchise = await prisma.franchise.findUnique({
+                where: { id },
+            });
+            if (!franchise) {
+                res.status(404).json({ error: "Franchise not found." });
+                return;
+            }
+            res.status(200).json(franchise);
         }
         catch (error) {
             next(error);

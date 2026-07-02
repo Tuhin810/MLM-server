@@ -32,4 +32,7 @@ router.patch("/enquiries/:id/status", authMiddleware, adminMiddleware, adminCont
 // Franchise management
 router.post("/franchises", authMiddleware, adminMiddleware, adminController.createFranchise);
 router.get("/franchises", authMiddleware, adminMiddleware, adminController.getFranchises);
+router.get("/franchises/:id", authMiddleware, adminMiddleware, adminController.getFranchiseById);
+router.put("/franchises/:id", authMiddleware, adminMiddleware, adminController.updateFranchise);
+router.delete("/franchises/:id", authMiddleware, adminMiddleware, adminController.deleteFranchise);
 export default router;

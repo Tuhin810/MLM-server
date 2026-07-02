@@ -364,6 +364,7 @@ model Franchise {
   tehsil               String
   cityVillage          String
   pincode              String
+  franchiseName        String               @default("")
   brandName            String
   mobileNo             String
   email                String               @unique
